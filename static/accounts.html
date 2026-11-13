@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>账号管理 · 深夜茶话会</title>
+<link rel="icon" href="/forum/favicon.svg" type="image/svg+xml" />
+<style>
+  :root{
+    --bg:#07080d; --panel:#0e1220; --card:rgba(18,21,32,.86); --line:rgba(120,190,255,.16);
+    --text:#e8eefc; --text-2:#9fb0cc; --text-3:#64748b;
+    --cyan:#38e1ff; --pink:#ff5ea8; --danger:#ff6b6b; --ok:#48d597;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:1060px; margin:0 auto}
+  header{display:flex; align-items:center; gap:12px; margin-bottom:22px; flex-wrap:wrap}
+  header h1{margin:0; font-size:18px; font-weight:600}
+  .tag{font-size:11px; color:var(--text-3); border:1px solid var(--line); border-radius:999px; padding:2px 9px}
+  .spacer{flex:1}
+  a.btn, button.btn{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:10px;
+    font-size:12.5px; cursor:pointer; text-decoration:none; color:var(--text);
+    background:rgba(56,225,255,.1); border:1px solid rgba(56,225,255,.32);
+    transition:background .15s,border-color .15s;
+  }
+  a.btn:hover, button.btn:hover{background:rgba(56,225,255,.18)}
+  button.primary{
+    background:linear-gradient(135deg,#38e1ff,#79f0d0); border:0; color:#04121a; font-weight:700;
+  }
+  button.primary:hover{filter:brightness(1.06)}
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px;
+    margin-bottom:18px; backdrop-filter:blur(10px);
+  }
+  .panel h2{margin:0 0 4px; font-size:14px; font-weight:600}
+  .panel p.hint{margin:0 0 14px; font-size:12px; color:var(--text-3)}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px}
+  label{display:block}
+  label > span{display:block; font-size:12px; color:var(--text-2); margin-bottom:5px}
+  input, select{
+    width:100%; padding:9px 11px; border-radius:10px; color:var(--text);
+    background:rgba(9,12,20,.9); border:1px solid rgba(120,190,255,.18);
+    font-size:13.5px; outline:none;
+  }
+  input:focus, select:focus{border-color:rgba(56,225,255,.55); box-shadow:0 0 0 3px rgba(56,225,255,.1)}
+  .row-actions{margin-top:14px; display:flex; align-items:center; gap:12px}
+  .msg{font-size:12.5px; min-height:18px}
+  .msg.err{color:var(--danger)} .msg.ok{color:var(--ok)}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th, td{padding:10px 8px; text-align:left; border-bottom:1px solid rgba(120,190,255,.1); vertical-align:middle}
+  th{font-size:11.5px; color:var(--text-3); font-weight:500; letter-spacing:.04em; white-space:nowrap}
+  td.mono, th.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px}
+  .badge{font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--text-2)}
+  .badge.admin{color:#ffd479; border-color:rgba(255,212,121,.36); background:rgba(255,212,121,.08)}
+  .badge.off{color:var(--danger); border-color:rgba(255,107,107,.36); background:rgba(255,107,107,.08)}
+  .op{font-size:12px; color:var(--cyan); background:none; border:0; cursor:pointer; padding:2px 4px}
+  .op.warn{color:var(--danger)}
+  .op:hover{text-decoration:underline}
+  .empty{color:var(--text-3); font-size:13px; padding:14px 0}
+  .legend{font-size:11.5px; color:var(--text-3); margin-top:12px; line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>账号管理</h1>
+    <span class="tag">仅管理员可见</span>
+    <span class="spacer"></span>
+    <a class="btn" href="/forum">← 返回论坛</a>
+    <button class="btn" id="logout">退出登录</button>
+  </header>
+
+  <section class="panel">
+    <h2>新建账号</h2>
+    <p class="hint">站点不提供注册入口，所有账号都由这里创建。密码至少 8 位，且需同时包含字母和数字。</p>
+    <form id="create-form" autocomplete="off">
+      <div class="grid">
+        <label><span>用户名（登录用，3-32 位）</span><input name="username" id="c-username" required /></label>
+        <label><span>展示名（发帖署名，可留空）</span><input name="display_name" id="c-display" maxlength="40" /></label>
+        <label><span>角色</span>
+          <select name="role" id="c-role">
+            <option value="user">普通成员</option>
+            <option value="admin">管理员</option>
+          </select>
+        </label>
+        <label><span>初始密码</span><input name="password" id="c-pass" type="password" required minlength="8" /></label>
+      </div>
+      <div class="row-actions">
+        <button type="submit" class="btn primary" id="c-submit">创建账号</button>
+        <span class="msg" id="c-msg"></span>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>全部账号 <span class="tag" id="count">—</span></h2>
+    <p class="hint">停用会立即踢下线并禁止登录；删除不可恢复，但其已发帖子保留。</p>
+    <div id="table-host"><div class="empty">加载中…</div></div>
+    <div class="legend">
+      提示：普通成员登录后可发帖、评论，但看不到本站接口密钥；管理员可在论坛页脚的「密钥」入口查看 API Key 与账号管理。
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var host = document.getElementById('table-host');
+  var countEl = document.getElementById('count');
+  var cMsg = document.getElementById('c-msg');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function setMsg(el, text, ok) {
+    el.textContent = text || '';
+    el.className = 'msg' + (text ? (ok ? ' ok' : ' err') : '');
+  }
+
+  function handle401(status, j) {
+    if (status === 401) { location.replace('/login?next=' + encodeURIComponent('/forum/accounts')); return true; }
+    if (status === 403) { host.innerHTML = '<div class="empty">需要管理员权限，当前账号无权访问此页。</div>'; return true; }
+    return false;
+  }
+
+  function req(url, opts) {
+    return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Content-Type': 'application/json' } }, opts || {}))
+      .then(function (r) {
+        return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; })
+          .then(function (j) { j.__status = r.status; return j; });
+      });
+  }
+
+  function load() {
+    req('/api/admin/users').then(function (j) {
+      if (!j.ok) {
+        if (!handle401(j.__status, j)) host.innerHTML = '<div class="empty">' + esc(j.error || '加载失败') + '</div>';
+        return;
+      }
+      var items = j.items || [];
+      countEl.textContent = items.length + ' 个';
+      if (!items.length) { host.innerHTML = '<div class="empty">还没有账号</div>'; return; }
+      var html = '<table><thead><tr>'
+        + '<th class="mono">ID</th><th>用户名</th><th>展示名</th><th>角色</th><th>状态</th>'
+        + '<th>创建</th><th>最近登录</th><th>操作</th></tr></thead><tbody>';
+      items.forEach(function (u) {
+        var roleCls = u.role === 'admin' ? 'badge admin' : 'badge';
+        var roleTxt = u.role === 'admin' ? '管理员' : '成员';
+        var stCls = u.status === 'active' ? 'badge' : 'badge off';
+        var stTxt = u.status === 'active' ? '正常' : '已停用';
+        var toggleTxt = u.status === 'active' ? '停用' : '启用';
+        html += '<tr>'
+          + '<td class="mono">' + u.id + '</td>'
+          + '<td class="mono">' + esc(u.username) + '</td>'
+          + '<td>' + esc(u.display_name) + '</td>'
+          + '<td><span class="' + roleCls + '">' + roleTxt + '</span></td>'
+          + '<td><span class="' + stCls + '">' + stTxt + '</span></td>'
+          + '<td class="mono">' + esc(u.created_at) + '</td>'
+          + '<td class="mono">' + esc(u.last_login_at || '—') + '</td>'
+          + '<td>'
+          + '<button class="op" data-act="pass" data-id="' + u.id + '" data-name="' + esc(u.username) + '">重置密码</button> '
+          + '<button class="op" data-act="toggle" data-id="' + u.id + '" data-status="' + u.status + '">' + toggleTxt + '</button> '
+          + '<button class="op warn" data-act="del" data-id="' + u.id + '" data-name="' + esc(u.username) + '">删除</button>'
+          + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      host.innerHTML = html;
+    }).catch(function () {
+      host.innerHTML = '<div class="empty">网络异常，刷新重试</div>';
+    });
+  }
+
+  document.getElementById('create-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var payload = {
+      username: document.getElementById('c-username').value.trim(),
+      display_name: document.getElementById('c-display').value.trim(),
+      role: document.getElementById('c-role').value,
+      password: document.getElementById('c-pass').value
+    };
+    var btn = document.getElementById('c-submit');
+    btn.disabled = true;
+    req('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }).then(function (j) {
+      btn.disabled = false;
+      if (!j.ok) {
+        if (!handle401(j.__status, j)) setMsg(cMsg, j.error || '创建失败', false);
+        return;
+      }
+      setMsg(cMsg, '已创建：' + j.user.username + '（' + (j.user.role === 'admin' ? '管理员' : '成员') + '）', true);
+      document.getElementById('create-form').reset();
+      load();
+    }).catch(function () { btn.disabled = false; setMsg(cMsg, '网络异常', false); });
+  });
+
+  host.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    var act = btn.getAttribute('data-act');
+    var id = btn.getAttribute('data-id');
+
+    if (act === 'pass') {
+      var pwd = window.prompt('给「' + btn.getAttribute('data-name') + '」设置新密码（至少 8 位，含字母和数字）：');
+      if (!pwd) return;
+      req('/api/admin/users/' + id + '/password', { method: 'POST', body: JSON.stringify({ password: pwd }) })
+        .then(function (j) {
+          if (!j.ok) { alert(j.error || '重置失败'); return; }
+          alert('密码已重置，该账号需要重新登录。');
+        });
+      return;
+    }
+    if (act === 'toggle') {
+      var next = btn.getAttribute('data-status') === 'active' ? 'disabled' : 'active';
+      req('/api/admin/users/' + id + '/status', { method: 'POST', body: JSON.stringify({ status: next }) })
+        .then(function (j) {
+          if (!j.ok) { alert(j.error || '操作失败'); return; }
+          load();
+        });
+      return;
+    }
+    if (act === 'del') {
+      if (!window.confirm('确定删除账号「' + btn.getAttribute('data-name') + '」？此操作不可恢复。')) return;
+      req('/api/admin/users/' + id, { method: 'DELETE' }).then(function (j) {
+        if (!j.ok) { alert(j.error || '删除失败'); return; }
+        load();
+      });
+    }
+  });
+
+  document.getElementById('logout').addEventListener('click', function () {
+    fetch('/api/auth/logout', { method: 'POST', cache: 'no-store' })
+      .then(function () { location.replace('/login'); })
+      .catch(function () { location.replace('/login'); });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阅读 · 小说板块</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/novel.css">
+<script src="/static/theme.js"></script>
+</head>
+<body class="nv-body nv-read-body" data-page="read">
+<div class="nv-bg"></div>
+
+<header class="nv-top">
+  <a class="nv-brand" href="/novel"><i>书</i>小说板块</a>
+  <nav class="nv-nav">
+    <a href="/novel">全部小说</a>
+    <a href="/novel" data-book-link="/novel/book/{id}">书籍详情</a>
+    <a href="/forum">社区论坛</a>
+  </nav>
+  <div class="nv-user" id="nv-user">…</div>
+</header>
+
+<div class="nv-read">
+  <!-- 左：章节目录（独立滚动，当前章高亮） -->
+  <aside class="nv-toc" id="nv-toc-pane">
+    <div class="nv-toc-head">
+      <a class="nv-toc-back" id="nv-toc-back" href="/novel">← 返回书架</a>
+      <h2 class="nv-toc-title" id="nv-toc-title">目录</h2>
+      <p class="nv-toc-meta" id="nv-toc-meta">加载中…</p>
+    </div>
+    <ol class="nv-toc-list" id="nv-toc"></ol>
+  </aside>
+
+  <!-- 右：正文（独立滚动） -->
+  <main class="nv-reader" id="nv-main">
+    <article class="nv-reader-inner">
+      <div class="nv-crumb" id="nv-crumb">
+        <a href="/novel">小说书架</a> / <a id="nv-crumb-book" href="/novel">书籍</a> / 阅读
+      </div>
+      <h1 class="nv-h1" id="nv-ch-title">加载中…</h1>
+      <p class="nv-sub" id="nv-ch-meta"></p>
+      <div class="nv-reader-text" id="nv-content"></div>
+      <nav class="nv-reader-nav">
+        <a class="nv-btn" id="nv-prev" href="#" hidden>← 上一章</a>
+        <button class="nv-btn ghost" id="nv-toc-toggle" type="button">目录</button>
+        <a class="nv-btn primary" id="nv-next" href="#" hidden>下一章 →</a>
+      </nav>
+    </article>
+  </main>
+</div>
+
+<script src="/static/novel.js" defer></script>
+</body>
+</html>

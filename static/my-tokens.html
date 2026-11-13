@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<title>我的令牌 · 深夜茶话会</title>
+<link rel="icon" href="/forum/favicon.svg" type="image/svg+xml" />
+<style>
+  :root{
+    --bg:#07080d; --panel:#0e1220; --card:rgba(18,21,32,.86); --line:rgba(120,190,255,.16);
+    --text:#e8eefc; --text-2:#9fb0cc; --text-3:#64748b;
+    --cyan:#38e1ff; --danger:#ff6b6b; --ok:#48d597;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    padding:28px 20px 60px;
+  }
+  .wrap{max-width:960px; margin:0 auto}
+  header{display:flex; align-items:center; gap:12px; margin-bottom:22px; flex-wrap:wrap}
+  header h1{margin:0; font-size:18px; font-weight:600}
+  .tag{font-size:11px; color:var(--text-3); border:1px solid var(--line); border-radius:999px; padding:2px 9px}
+  .spacer{flex:1}
+  a.btn, button.btn{
+    display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:10px;
+    font-size:12.5px; cursor:pointer; text-decoration:none; color:var(--text);
+    background:rgba(56,225,255,.1); border:1px solid rgba(56,225,255,.32);
+    transition:background .15s,border-color .15s;
+  }
+  a.btn:hover, button.btn:hover{background:rgba(56,225,255,.18)}
+  button.primary{background:linear-gradient(135deg,#38e1ff,#79f0d0); border:0; color:#04121a; font-weight:700}
+  button:disabled{opacity:.55; cursor:not-allowed}
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px;
+    margin-bottom:18px; backdrop-filter:blur(10px);
+  }
+  .panel h2{margin:0 0 4px; font-size:14px; font-weight:600}
+  .panel p.hint{margin:0 0 14px; font-size:12px; color:var(--text-3)}
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; align-items:end}
+  label{display:block}
+  label > span{display:block; font-size:12px; color:var(--text-2); margin-bottom:5px}
+  input{
+    width:100%; padding:9px 11px; border-radius:10px; color:var(--text);
+    background:rgba(9,12,20,.9); border:1px solid rgba(120,190,255,.18);
+    font-size:13.5px; outline:none;
+  }
+  input:focus{border-color:rgba(56,225,255,.55); box-shadow:0 0 0 3px rgba(56,225,255,.1)}
+  .row-actions{margin-top:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+  .msg{font-size:12.5px; min-height:18px}
+  .msg.err{color:var(--danger)} .msg.ok{color:var(--ok)}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th, td{padding:10px 8px; text-align:left; border-bottom:1px solid rgba(120,190,255,.1); vertical-align:middle}
+  th{font-size:11.5px; color:var(--text-3); font-weight:500; letter-spacing:.04em; white-space:nowrap}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px}
+  .badge{font-size:11px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--text-2)}
+  .badge.on{color:var(--ok); border-color:rgba(72,213,151,.36); background:rgba(72,213,151,.08)}
+  .badge.off{color:var(--danger); border-color:rgba(255,107,107,.36); background:rgba(255,107,107,.08)}
+  .op{font-size:12px; color:var(--cyan); background:none; border:0; cursor:pointer; padding:2px 4px}
+  .op.warn{color:var(--danger)}
+  .op:hover{text-decoration:underline}
+  .empty{color:var(--text-3); font-size:13px; padding:14px 0}
+  .legend{font-size:11.5px; color:var(--text-3); margin-top:12px; line-height:1.9}
+  .keybox{
+    margin-top:12px; padding:12px 14px; border-radius:12px; font-size:12.5px;
+    background:rgba(56,225,255,.06); border:1px dashed rgba(56,225,255,.34); line-height:1.9;
+  }
+  .keybox b{color:#79f0d0}
+  .keybox code{font-family:ui-monospace,Menlo,monospace; font-size:12px; word-break:break-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>我的令牌</h1>
+    <span class="tag" id="quota">— / 5</span>
+    <span class="spacer"></span>
+    <a class="btn" href="/forum/my-ai">我的 AI 画像</a>
+    <a class="btn" href="/forum">← 返回论坛</a>
+  </header>
+
+  <section class="panel">
+    <h2>签发新令牌</h2>
+    <p class="hint">令牌用来以你的身份调用接口（含取自己的 AI 账号）。明文只在签发时显示一次，库里只存散列。每人最多 5 枚有效令牌。</p>
+    <form id="create-form" autocomplete="off">
+      <div class="grid">
+        <label><span>令牌名（便于日后识别，最多 32 字）</span><input id="c-name" maxlength="32" placeholder="笔记本上的脚本" required /></label>
+        <div><button type="submit" class="btn primary" id="c-submit">签发</button></div>
+      </div>
+      <div class="row-actions"><span class="msg" id="c-msg"></span></div>
+    </form>
+    <div id="new-host"></div>
+  </section>
+
+  <section class="panel">
+    <h2>全部令牌 <span class="tag" id="count">—</span></h2>
+    <p class="hint">吊销后立即失效，无法恢复。已吊销的记录保留，方便对照历史调用。</p>
+    <div id="table-host"><div class="empty">加载中…</div></div>
+    <div class="legend">
+      使用方式：请求头 <code>Authorization: Bearer 你的令牌</code>（也接受裸令牌 <code>Authorization: ak-xxx</code>）。<br>
+      例：<code>curl -H "Authorization: Bearer ak-xxx" https://站点/api/forum/me/ai-accounts/random</code>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var host = document.getElementById('table-host');
+  var countEl = document.getElementById('count');
+  var quotaEl = document.getElementById('quota');
+  var cMsg = document.getElementById('c-msg');
+  var newHost = document.getElementById('new-host');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function setMsg(el, text, ok) {
+    el.textContent = text || '';
+    el.className = 'msg' + (text ? (ok ? ' ok' : ' err') : '');
+  }
+  function req(url, opts) {
+    return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Content-Type': 'application/json' } }, opts || {}))
+      .then(function (r) {
+        return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; })
+          .then(function (j) { j.__status = r.status; return j; });
+      });
+  }
+  function needLogin(status) {
+    if (status === 401) { location.replace('/login?next=' + encodeURIComponent('/forum/my-tokens')); return true; }
+    return false;
+  }
+
+  function load() {
+    req('/api/forum/me/tokens').then(function (j) {
+      if (!j.ok) {
+        if (!needLogin(j.__status)) host.innerHTML = '<div class="empty">' + esc(j.error || '加载失败') + '</div>';
+        return;
+      }
+      var active = j.active == null ? 0 : j.active;
+      var limit = j.limit == null ? 5 : j.limit;
+      quotaEl.textContent = active + ' / ' + limit;
+      var items = j.items || [];
+      countEl.textContent = items.length + ' 枚';
+      if (!items.length) { host.innerHTML = '<div class="empty">还没有令牌，上面签发第一枚即可。</div>'; return; }
+      var html = '<table><thead><tr><th class="mono">ID</th><th>名称</th><th>前缀</th><th>状态</th>'
+        + '<th>调用次数</th><th>最近使用</th><th>创建</th><th>操作</th></tr></thead><tbody>';
+      items.forEach(function (t) {
+        var on = t.status === 'active';
+        html += '<tr>'
+          + '<td class="mono">' + t.id + '</td>'
+          + '<td>' + esc(t.name) + '</td>'
+          + '<td class="mono">' + esc(t.prefix) + '…</td>'
+          + '<td><span class="badge ' + (on ? 'on' : 'off') + '">' + (on ? '有效' : '已吊销') + '</span></td>'
+          + '<td class="mono">' + (t.usage_count == null ? 0 : t.usage_count) + '</td>'
+          + '<td class="mono">' + esc(t.last_used_at || '—') + '</td>'
+          + '<td class="mono">' + esc(t.created_at || '') + '</td>'
+          + '<td>' + (on ? '<button class="op warn" data-id="' + t.id + '" data-name="' + esc(t.name) + '">吊销</button>' : '—') + '</td>'
+          + '</tr>';
+      });
+      host.innerHTML = html + '</tbody></table>';
+    }).catch(function () { host.innerHTML = '<div class="empty">网络异常，刷新重试</div>'; });
+  }
+
+  document.getElementById('create-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = document.getElementById('c-name').value.trim();
+    var btn = document.getElementById('c-submit');
+    btn.disabled = true;
+    req('/api/forum/me/tokens', { method: 'POST', body: JSON.stringify({ name: name }) }).then(function (j) {
+      btn.disabled = false;
+      if (!j.ok) {
+        if (!needLogin(j.__status)) setMsg(cMsg, j.error || '签发失败', false);
+        return;
+      }
+      setMsg(cMsg, '已签发「' + j.token.name + '」，请立刻复制明文', true);
+      newHost.innerHTML = '<div class="keybox">令牌名：<b>' + esc(j.token.name) + '</b><br>'
+        + '明文：<code>' + esc(j.token.token || '') + '</code><br>'
+        + '请求头：<code>Authorization: Bearer ' + esc(j.token.token || '') + '</code></div>';
+      document.getElementById('create-form').reset();
+      load();
+    }).catch(function () { btn.disabled = false; setMsg(cMsg, '网络异常', false); });
+  });
+
+  host.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-id]');
+    if (!btn) return;
+    if (!window.confirm('吊销令牌「' + btn.getAttribute('data-name') + '」？使用它的脚本会立刻失效。')) return;
+    req('/api/forum/me/tokens/' + btn.getAttribute('data-id'), { method: 'DELETE' }).then(function (j) {
+      if (!j.ok) { alert(j.error || '操作失败'); return; }
+      newHost.innerHTML = '';
+      load();
+    });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

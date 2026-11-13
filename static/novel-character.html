@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>角色详情 · 小说板块</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/novel.css">
+<script src="/static/theme.js"></script>
+</head>
+<body class="nv-body" data-page="character">
+<div class="nv-bg"></div>
+
+<header class="nv-top">
+  <a class="nv-brand" href="/novel"><i>书</i>小说板块</a>
+  <nav class="nv-nav">
+    <a href="/novel">全部小说</a>
+    <a data-link="/novel/book/{id}" href="/novel">书籍详情</a>
+    <a data-link="/novel/book/{id}/characters" href="/novel">角色列表</a>
+    <a data-link="/novel/book/{id}/graph" href="/novel">关系网</a>
+  </nav>
+  <div class="nv-user" id="nv-user">…</div>
+</header>
+
+<main class="nv-wrap" id="nv-main">
+  <div class="nv-crumb"><a href="/novel">小说书架</a> / <a data-link="/novel/book/{id}" href="/novel">书籍</a> / 角色详情</div>
+  <h1 class="nv-h1" id="nv-title">加载中…</h1>
+  <p class="nv-sub" id="nv-sub"></p>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">基础信息</h2>
+    <div class="nv-stats" id="nv-profile"></div>
+    <p class="nv-muted" style="font-size:13.5px;white-space:pre-wrap;margin:0" id="nv-intro"></p>
+  </div>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">事迹时间线</h2>
+    <p class="nv-muted" style="font-size:12.5px;margin:0 0 14px">共 <b id="nv-event-count">0</b> 条 · 按事件时间排序（支持「帝国历 10 年」这类虚构纪年）</p>
+    <div id="nv-events"><div class="nv-empty">加载中…</div></div>
+  </div>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">记录新事迹</h2>
+    <form id="nv-event-form" autocomplete="off">
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>事件发生时间 <em>文本，可为虚构纪年</em></span>
+          <input class="nv-input" data-name="event_time" maxlength="64" placeholder="例如：帝国历 10 年·冬" required>
+        </label>
+        <label class="nv-field">
+          <span>关联章节 ID <em>可选</em></span>
+          <input class="nv-input" data-name="chapter_id" type="number" min="1" step="1" placeholder="章节 ID">
+        </label>
+      </div>
+      <label class="nv-field">
+        <span>事件描述 <em>必填</em></span>
+        <textarea class="nv-textarea" data-name="description" maxlength="2000" placeholder="发生了什么、结果如何" required></textarea>
+      </label>
+      <div id="nv-event-err"></div>
+      <div class="nv-actions">
+        <button class="nv-btn primary" id="nv-event-submit" type="submit">记录事迹</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script src="/static/novel.js" defer></script>
+</body>
+</html>

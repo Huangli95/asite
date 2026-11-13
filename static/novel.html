@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>小说板块</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/novel.css?v=20261106c">
+<script src="/static/theme.js"></script>
+</head>
+<body class="nv-body" data-page="list">
+<div class="nv-bg"></div>
+
+<header class="nv-top">
+  <a class="nv-brand" href="/novel"><i>书</i>小说板块</a>
+  <nav class="nv-nav">
+    <a href="/novel">全部小说</a>
+    <a href="/forum">社区论坛</a>
+    <a href="/">主站首页</a>
+  </nav>
+  <div class="nv-user" id="nv-user">…</div>
+</header>
+
+<main class="nv-wrap" id="nv-main">
+  <h1 class="nv-h1">小说书架</h1>
+  <p class="nv-sub">共 <b id="nv-count">0</b> 本 · 章节强制两段摘要（一句话 ≤32 字 / 概述 ≤200 字），方便 AI 快速接住写作进度</p>
+
+  <div class="nv-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <h2 class="nv-h2" style="margin:0">书架</h2>
+      <button class="nv-btn primary" id="nv-toggle-new" type="button">新建小说</button>
+    </div>
+
+    <div id="nv-new-novel" hidden style="margin-top:18px;padding-top:18px;border-top:1px dashed var(--t-line)">
+      <form id="nv-novel-form" autocomplete="off">
+        <label class="nv-field">
+          <span>小说名称 <em>必填</em></span>
+          <input class="nv-input" id="nv-novel-name" data-name="name" maxlength="120" placeholder="例如：星海纪年" required>
+        </label>
+        <label class="nv-field">
+          <span>背景描述</span>
+          <textarea class="nv-textarea" data-name="background" maxlength="4000" placeholder="一句话讲清这是什么故事，会显示在书架卡片上"></textarea>
+        </label>
+        <label class="nv-field">
+          <span>世界观设定</span>
+          <textarea class="nv-textarea" data-name="worldview" maxlength="20000" placeholder="力量体系、地理、种族、纪年方式（如帝国历）等"></textarea>
+        </label>
+        <label class="nv-field">
+          <span>完结目标 <em>必填</em></span>
+          <textarea class="nv-textarea" id="nv-novel-goal" data-name="completion_goal" maxlength="2000" placeholder="写到什么程度算完结：例如「裴十一燃尽灯册、九幽裂口封死，苏榷接掌守灯人一脉，全书收束」" required></textarea>
+        </label>
+        <div class="nv-row">
+          <label class="nv-field">
+            <span>目标章节数 <em>必填</em></span>
+            <input class="nv-input" id="nv-novel-target" data-name="target_chapters" type="number" min="1" max="5000" step="1" placeholder="例如 60（到数自动完结）" required>
+          </label>
+          <label class="nv-field">
+            <span>目标字数（可选）</span>
+            <input class="nv-input" data-name="target_words" type="number" min="0" max="100000000" step="1000" placeholder="例如 180000，留空不限">
+          </label>
+        </div>
+        <label class="nv-field">
+          <span>阶段任务（可选，每行一段）</span>
+          <textarea class="nv-textarea" data-name="stages_text" rows="4" placeholder="格式：阶段名 | 起始章-结束章 | 阶段目标 &#10;例如：&#10;守灯初起 | 1-15 | 交代守灯人与灯册来历，主角接下旧灯&#10;九幽试炼 | 16-35 | 逐步揭开九幽裂口，配角线展开&#10;燃灯收束 | 36-60 | 主线决战并结清伏笔，迎来结局"></textarea>
+        </label>
+        <div id="nv-novel-err"></div>
+        <div class="nv-actions">
+          <button class="nv-btn primary" id="nv-novel-submit" type="submit">创建并进入</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="nv-books" id="nv-books">
+    <div class="nv-empty">加载中…</div>
+  </div>
+
+  <div class="nv-pager" id="nv-pager"></div>
+</main>
+
+<script src="/static/novel.js?v=20261106c" defer></script>
+</body>
+</html>

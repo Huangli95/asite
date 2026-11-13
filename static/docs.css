@@ -1,0 +1,354 @@
+/* ==========================================================================
+   深夜茶话会 · 接口文档页样式（复用 forum.css 变量）
+   ========================================================================== */
+
+.doc-wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 26px 22px 60px;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+}
+
+/* ------------------------------- 目录 ---------------------------------- */
+.toc {
+  position: sticky;
+  top: 22px;
+  padding: 16px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(10px);
+}
+.toc h4 {
+  margin: 2px 0 10px;
+  font-size: 11px;
+  letter-spacing: .22em;
+  color: var(--text-3);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.toc a {
+  font-size: 13.5px;
+  color: var(--text-2);
+  padding: 6px 10px;
+  border-radius: 9px;
+  border-left: 2px solid transparent;
+  transition: all .16s ease;
+}
+.toc a:hover { color: var(--text); background: var(--t-ov-1, rgba(255, 255, 255, .04)); }
+.toc a.lvl2 { font-size: 12.5px; padding-left: 20px; color: var(--text-3); }
+.toc a.active {
+  color: var(--pink-soft);
+  border-left-color: var(--pink);
+  background: rgba(255, 107, 181, .1);
+}
+
+/* ------------------------------- 主体 ---------------------------------- */
+.doc-main { min-width: 0; }
+
+.doc-hero {
+  padding: 26px 26px 22px;
+  border: 1px solid var(--line-pink);
+  border-radius: 20px;
+  background:
+    radial-gradient(600px 200px at 88% -30%, rgba(255, 107, 181, .22), transparent 70%),
+    linear-gradient(160deg, var(--t-hero-a, rgba(38, 24, 58, .86)), var(--t-hero-b, rgba(20, 14, 32, .9)));
+  box-shadow: var(--shadow);
+  margin-bottom: 26px;
+}
+.doc-hero .kicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: .3em;
+  color: var(--cyan);
+  text-transform: uppercase;
+}
+.doc-hero h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  letter-spacing: .02em;
+  background: linear-gradient(100deg, #fff, var(--pink-soft) 55%, var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.doc-hero p { margin: 0 0 14px; color: var(--text-2); font-size: 14px; max-width: 700px; }
+.hero-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.mini {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--t-ov-1, rgba(255, 255, 255, .04));
+}
+
+.doc-sec {
+  margin-bottom: 34px;
+  scroll-margin-top: 18px;
+}
+.doc-sec h2 {
+  position: relative;
+  margin: 0 0 14px;
+  padding-left: 14px;
+  font-size: 20px;
+  letter-spacing: .02em;
+}
+.doc-sec h2::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 6px; bottom: 4px;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--pink), var(--violet));
+  box-shadow: 0 0 12px rgba(255, 107, 181, .55);
+}
+.doc-sec h3 {
+  margin: 20px 0 10px;
+  font-size: 15px;
+  color: var(--pink-soft);
+  letter-spacing: .04em;
+}
+.doc-sec p { color: var(--text-2); font-size: 14px; margin: 0 0 12px; }
+.doc-sec p.dim, .dim { color: var(--text-3); font-size: 13px; }
+
+/* ------------------------------ 接口卡 --------------------------------- */
+.ep {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 16px 18px;
+  margin: 0 0 16px;
+}
+.ep-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--line);
+}
+.ep-head code {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: #fff;
+  letter-spacing: .01em;
+}
+.ep-head .scope {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--warm);
+  border: 1px solid rgba(255, 207, 107, .3);
+  background: rgba(255, 207, 107, .08);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* 方法标签 */
+.m {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.m.get { color: var(--cyan); background: rgba(63, 224, 255, .12); border: 1px solid rgba(63, 224, 255, .28); }
+.m.post { color: var(--mint); background: rgba(94, 242, 184, .12); border: 1px solid rgba(94, 242, 184, .28); }
+.m.put { color: var(--warm); background: rgba(255, 207, 107, .12); border: 1px solid rgba(255, 207, 107, .28); }
+.m.del { color: #ff8f8f; background: rgba(255, 122, 122, .12); border: 1px solid rgba(255, 122, 122, .3); }
+
+/* ------------------------------- 表格 ---------------------------------- */
+.api-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.api-table thead th {
+  text-align: left;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+  padding: 9px 12px;
+  background: var(--t-ov-1, rgba(255, 255, 255, .035));
+  border-bottom: 1px solid var(--line);
+}
+.api-table td {
+  padding: 9px 12px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--t-ov-1, rgba(255, 255, 255, .045));
+  vertical-align: top;
+}
+.api-table tbody tr:last-child td { border-bottom: none; }
+.api-table tbody tr:hover td { background: var(--t-ov-1, rgba(255, 255, 255, .025)); }
+.api-table .mono {
+  font-family: var(--mono);
+  color: #fff;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.api-table.slim td { padding: 7px 12px; }
+
+/* ------------------------------- 代码 ---------------------------------- */
+code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--pink-soft);
+  background: rgba(255, 107, 181, .1);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+pre {
+  position: relative;
+  margin: 0 0 14px;
+  padding: 16px 16px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--t-ov-3, rgba(255, 255, 255, .1));
+  background: linear-gradient(180deg, var(--t-code-a, #100b1b), var(--t-code-b, #0a0713));
+  overflow: auto;
+  box-shadow: inset 0 1px 0 var(--t-ov-1, rgba(255, 255, 255, .05));
+}
+pre code {
+  display: block;
+  background: none;
+  padding: 0;
+  color: var(--t-ink-2, #d9d1e8);
+  font-size: 12.5px;
+  line-height: 1.72;
+  white-space: pre;
+}
+pre::after {
+  content: attr(data-lang);
+  position: absolute;
+  top: 10px; right: 74px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.copy-btn {
+  position: absolute;
+  top: 7px; right: 9px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+  background: var(--t-ov-2, rgba(255, 255, 255, .06));
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition: all .16s ease;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--pink-soft); border-color: var(--line-pink); }
+.copy-btn.done { color: var(--mint); border-color: rgba(94, 242, 184, .45); }
+
+/* ------------------------------- 提示 ---------------------------------- */
+.note {
+  border-left: 2px solid var(--cyan);
+  background: rgba(63, 224, 255, .07);
+  border-radius: 0 10px 10px 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0 0 14px;
+}
+.note b { color: var(--cyan); }
+
+.doc-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.doc-foot a { color: var(--text-2); }
+.doc-foot a:hover { color: var(--pink-soft); }
+
+/* ----------------------------- 响应式 ---------------------------------- */
+@media (max-width: 980px) {
+  .doc-wrap { grid-template-columns: 1fr; gap: 18px; }
+  .toc { position: static; flex-direction: row; flex-wrap: wrap; gap: 4px; padding: 10px; }
+  .toc h4 { width: 100%; margin: 0 0 6px; }
+  .toc a.lvl2 { padding-left: 10px; }
+  .doc-hero { padding: 20px; }
+  .doc-hero h1 { font-size: 23px; }
+}
+@media (max-width: 640px) {
+  .doc-wrap { padding: 18px 14px 40px; }
+  .api-table { display: block; overflow-x: auto; white-space: nowrap; }
+  pre { padding: 12px; }
+  pre code { font-size: 11.5px; }
+}
+
+
+/* ============================ 移动端适配 ============================ */
+@media (max-width: 640px) {
+  /* 单列时 grid 列必须可压缩，否则被表格/长 code 的 min-content 撑破 */
+  .doc-wrap { grid-template-columns: minmax(0, 1fr); }
+  .doc-sec { scroll-margin-top: 76px; padding-right: 0; }
+  .doc-sec h2 { font-size: 18px; }
+  .doc-sec h3 { font-size: 15px; }
+  .doc-sec p, .doc-sec li { font-size: 14px; }
+  /* 表格改为横向滚动容器，单元格允许换行 */
+  .api-table {
+    display: block; width: 100%; max-width: 100%;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    white-space: normal; border-radius: 10px;
+  }
+  .api-table th, .api-table td { white-space: normal; word-break: break-word; padding: 8px 10px; font-size: 12.5px; }
+  .api-table .mono { white-space: normal; word-break: break-all; }
+  /* 行内 code 允许断行，避免长接口名把页面顶宽 */
+  .doc-sec code:not(pre code) { word-break: break-all; white-space: normal; }
+  pre { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  pre code { font-size: 11.5px; }
+  .copy-btn { min-width: 44px; min-height: 30px; }
+  .doc-sec a { word-break: break-word; }
+}
+
+
+/* 移动端字号兜底 */
+@media (max-width: 640px) {
+  .api-table th { font-size: 12px; }
+  .api-table td, .api-table td span, .api-table td code { font-size: 12px; }
+  .ep-head > span, .ep-head > b { font-size: 11.5px; }
+  pre > button.copy-btn { font-size: 11.5px; }
+  pre > code { font-size: 11.5px; }
+}
+
+@media (max-width: 640px) {
+  .api-table th, .api-table td { font-size: 12px !important; }
+  aside.toc > h4, section.doc-hero > p { font-size: 11.5px; }
+}
+
+@media (max-width: 640px) {
+  /* 目录限高可滚，避免首屏被目录吃满 */
+  aside.toc { max-height: 176px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 12px; }
+  aside.toc h4 { margin-bottom: 6px; }
+}

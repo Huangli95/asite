@@ -1,0 +1,526 @@
+/* ==========================================================================
+   站点主题层 · 六个时段配色 + 主题切换器
+   --------------------------------------------------------------------------
+   设计约定：
+   1. 本文件只定义「主题令牌」（统一 --t- 前缀），不直接写页面样式；
+      style.css / forum.css / docs.css 在自己的 :root 里把原有变量映射到令牌，
+      令牌缺失时回退到各页原本的默认配色，因此老页面零改动也能正常显示。
+   2. 令牌挂在 html[data-theme="…"] 上，由 theme.js 写入属性，CSS 只做被动响应。
+   3. 六时段：凌晨 / 早上 / 中午 / 下午 / 傍晚 / 晚上，冷段用深色、亮段用浅色，
+      页面底色、卡片、文字、分隔线、强调色、背景光晕、吸顶栏一起联动。
+   ========================================================================== */
+
+html {
+  /* 令牌缺失（theme.js 未执行）时回退到浅色，浏览器原生控件跟随主题明暗 */
+  color-scheme: var(--t-scheme, light);
+}
+
+/* ---------------------------- 01 凌晨 00:00-05:00 ---------------------------
+   深空蓝紫 · 冷、静、低照度：底色压到接近夜空的深靛，强调色偏蓝紫
+   -------------------------------------------------------------------------- */
+html[data-theme="dawn"] {
+  --t-bg: #070a18;
+  --t-bg-2: #0b1020;
+  --t-surface: #101529;
+  --t-surface-soft: rgba(22, 28, 50, .82);
+  --t-panel: rgba(16, 21, 41, .88);
+  --t-panel-2: rgba(24, 31, 56, .74);
+  --t-ink: #e7ecff;
+  --t-ink-2: #a6b2d6;
+  --t-ink-3: #74809f;
+  --t-line: #1a2138;
+  --t-line-2: #232c48;
+  --t-line-accent: rgba(124, 140, 255, .34);
+  --t-accent: #6b7dff;
+  --t-accent-2: #43d6c0;
+  --t-on-accent: #f6f8ff;
+  --t-inverse: #e9eeff;
+  --t-on-inverse: #08102a;
+  --t-pink: #8b7dff;
+  --t-pink-soft: #b0a6ff;
+  --t-cyan: #5fd0ff;
+  --t-violet: #b492ff;
+  --t-mint: #5ef2b8;
+  --t-warm: #ffd68a;
+  --t-glow-1: rgba(96, 122, 255, .22);
+  --t-glow-2: rgba(140, 96, 255, .17);
+  --t-glow-3: rgba(70, 210, 190, .10);
+  --t-head-a: rgba(7, 10, 24, .94);
+  --t-head-b: rgba(7, 10, 24, .64);
+  --t-ov-1: rgba(255, 255, 255, .028);
+  --t-ov-2: rgba(255, 255, 255, .05);
+  --t-ov-3: rgba(255, 255, 255, .075);
+  --t-ov-4: rgba(255, 255, 255, .14);
+  --t-inset: rgba(0, 0, 0, .34);
+  --t-scrim: rgba(4, 7, 18, .68);
+  --t-grid: rgba(255, 255, 255, .028);
+  --t-noise: rgba(255, 255, 255, .014);
+  --t-shadow: 0 18px 40px -22px rgba(0, 0, 0, .9);
+  --t-card-a: #131a2f;
+  --t-card-b: #0d1222;
+  --t-card-c: #171f38;
+  --t-hero-a: rgba(28, 36, 66, .88);
+  --t-hero-b: rgba(12, 16, 32, .92);
+  --t-code-a: #0d1226;
+  --t-code-b: #080b18;
+  --t-scheme: dark;
+  --t-meta: #070a18;
+}
+
+/* ---------------------------- 02 早上 05:00-09:00 ---------------------------
+   晨光熹微 · 暖粉金：天亮不久的光线，底色奶白微粉，强调色晨橙
+   -------------------------------------------------------------------------- */
+html[data-theme="morning"] {
+  --t-bg: #fdf7f2;
+  --t-bg-2: #fbf1ea;
+  --t-surface: #ffffff;
+  --t-surface-soft: rgba(255, 255, 255, .8);
+  --t-panel: rgba(255, 255, 255, .88);
+  --t-panel-2: rgba(255, 247, 241, .74);
+  --t-ink: #2b1d1b;
+  --t-ink-2: #6d554d;
+  --t-ink-3: #a0867c;
+  --t-line: #f3e4d9;
+  --t-line-2: #ecd8c9;
+  --t-line-accent: rgba(255, 138, 76, .3);
+  --t-accent: #f2793d;
+  --t-accent-2: #ffb066;
+  --t-on-accent: #fffaf6;
+  --t-inverse: #2b1d1b;
+  --t-on-inverse: #fffaf6;
+  --t-pink: #f4718e;
+  --t-pink-soft: #ff9db2;
+  --t-cyan: #3fa9bd;
+  --t-violet: #9a72ef;
+  --t-mint: #2fae83;
+  --t-warm: #e2991f;
+  --t-glow-1: rgba(255, 206, 158, .58);
+  --t-glow-2: rgba(255, 178, 196, .38);
+  --t-glow-3: rgba(255, 230, 186, .48);
+  --t-head-a: rgba(253, 247, 242, .94);
+  --t-head-b: rgba(253, 247, 242, .68);
+  --t-ov-1: rgba(64, 36, 26, .026);
+  --t-ov-2: rgba(64, 36, 26, .045);
+  --t-ov-3: rgba(64, 36, 26, .07);
+  --t-ov-4: rgba(64, 36, 26, .14);
+  --t-inset: rgba(255, 255, 255, .86);
+  --t-scrim: rgba(58, 30, 20, .5);
+  --t-grid: rgba(64, 36, 26, .045);
+  --t-noise: rgba(64, 36, 26, .016);
+  --t-shadow: 0 18px 40px -24px rgba(126, 74, 44, .3);
+  --t-card-a: #fff6ef;
+  --t-card-b: #ffffff;
+  --t-card-c: #fff2e8;
+  --t-hero-a: rgba(255, 244, 234, .94);
+  --t-hero-b: rgba(255, 250, 246, .96);
+  --t-code-a: #fdf1e7;
+  --t-code-b: #fbf6f1;
+  --t-scheme: light;
+  --t-meta: #fdf7f2;
+}
+
+/* ---------------------------- 03 中午 09:00-13:00 ---------------------------
+   晴空正午 · 高照度蓝白：最亮的一段，底色清透蓝，强调色正蓝
+   -------------------------------------------------------------------------- */
+html[data-theme="noon"] {
+  --t-bg: #f2f7ff;
+  --t-bg-2: #eaf2ff;
+  --t-surface: #ffffff;
+  --t-surface-soft: rgba(255, 255, 255, .82);
+  --t-panel: rgba(255, 255, 255, .9);
+  --t-panel-2: rgba(244, 249, 255, .76);
+  --t-ink: #0a1a30;
+  --t-ink-2: #40567a;
+  --t-ink-3: #7b8daa;
+  --t-line: #dfeaf8;
+  --t-line-2: #cfdff2;
+  --t-line-accent: rgba(31, 123, 255, .28);
+  --t-accent: #1f7bff;
+  --t-accent-2: #12c8b0;
+  --t-on-accent: #ffffff;
+  --t-inverse: #0a1a30;
+  --t-on-inverse: #ffffff;
+  --t-pink: #e8518f;
+  --t-pink-soft: #ff86b4;
+  --t-cyan: #1fa3c9;
+  --t-violet: #6f7bf0;
+  --t-mint: #17a97f;
+  --t-warm: #d98b12;
+  --t-glow-1: rgba(186, 216, 255, .92);
+  --t-glow-2: rgba(196, 244, 234, .85);
+  --t-glow-3: rgba(206, 226, 255, .6);
+  --t-head-a: rgba(242, 247, 255, .94);
+  --t-head-b: rgba(242, 247, 255, .7);
+  --t-ov-1: rgba(12, 34, 66, .024);
+  --t-ov-2: rgba(12, 34, 66, .045);
+  --t-ov-3: rgba(12, 34, 66, .07);
+  --t-ov-4: rgba(12, 34, 66, .13);
+  --t-inset: rgba(255, 255, 255, .88);
+  --t-scrim: rgba(8, 24, 48, .5);
+  --t-grid: rgba(12, 34, 66, .045);
+  --t-noise: rgba(12, 34, 66, .016);
+  --t-shadow: 0 18px 40px -24px rgba(20, 50, 100, .3);
+  --t-card-a: #f7fbff;
+  --t-card-b: #ffffff;
+  --t-card-c: #eef6ff;
+  --t-hero-a: rgba(240, 247, 255, .94);
+  --t-hero-b: rgba(250, 253, 255, .96);
+  --t-code-a: #eef4fd;
+  --t-code-b: #f7fafe;
+  --t-scheme: light;
+  --t-meta: #f2f7ff;
+}
+
+/* ---------------------------- 04 下午 13:00-17:00 ---------------------------
+   暖阳慵懒 · 琥珀米：午后偏黄的光，底色暖米白，强调色琥珀
+   -------------------------------------------------------------------------- */
+html[data-theme="afternoon"] {
+  --t-bg: #fdf8ef;
+  --t-bg-2: #faf1e3;
+  --t-surface: #fffdf8;
+  --t-surface-soft: rgba(255, 253, 246, .84);
+  --t-panel: rgba(255, 253, 246, .9);
+  --t-panel-2: rgba(252, 243, 230, .76);
+  --t-ink: #2a2012;
+  --t-ink-2: #6a5a40;
+  --t-ink-3: #9d8b70;
+  --t-line: #f0e5d2;
+  --t-line-2: #e7d8bf;
+  --t-line-accent: rgba(217, 127, 20, .28);
+  --t-accent: #d97f14;
+  --t-accent-2: #efae42;
+  --t-on-accent: #fffdf8;
+  --t-inverse: #2a2012;
+  --t-on-inverse: #fffdf8;
+  --t-pink: #d9644b;
+  --t-pink-soft: #ff9d6e;
+  --t-cyan: #2f8f86;
+  --t-violet: #8a6be0;
+  --t-mint: #3f9c70;
+  --t-warm: #c98416;
+  --t-glow-1: rgba(255, 226, 168, .9);
+  --t-glow-2: rgba(255, 208, 156, .62);
+  --t-glow-3: rgba(255, 238, 204, .75);
+  --t-head-a: rgba(253, 248, 239, .94);
+  --t-head-b: rgba(253, 248, 239, .7);
+  --t-ov-1: rgba(64, 48, 20, .026);
+  --t-ov-2: rgba(64, 48, 20, .045);
+  --t-ov-3: rgba(64, 48, 20, .07);
+  --t-ov-4: rgba(64, 48, 20, .14);
+  --t-inset: rgba(255, 255, 255, .86);
+  --t-scrim: rgba(56, 40, 14, .48);
+  --t-grid: rgba(64, 48, 20, .05);
+  --t-noise: rgba(64, 48, 20, .016);
+  --t-shadow: 0 18px 40px -24px rgba(112, 82, 32, .28);
+  --t-card-a: #fff8eb;
+  --t-card-b: #fffdf8;
+  --t-card-c: #fdf1dd;
+  --t-hero-a: rgba(255, 248, 234, .95);
+  --t-hero-b: rgba(255, 252, 244, .96);
+  --t-code-a: #fbf1df;
+  --t-code-b: #fdf8ef;
+  --t-scheme: light;
+  --t-meta: #fdf8ef;
+}
+
+/* ---------------------------- 05 傍晚 17:00-20:00 ---------------------------
+   落日熔金 · 绯橙暮色：天光收尾，底色转深紫红，强调色落日橙
+   -------------------------------------------------------------------------- */
+html[data-theme="dusk"] {
+  --t-bg: #1b0f1f;
+  --t-bg-2: #241326;
+  --t-surface: #2b1830;
+  --t-surface-soft: rgba(48, 28, 50, .84);
+  --t-panel: rgba(43, 24, 48, .9);
+  --t-panel-2: rgba(56, 32, 60, .76);
+  --t-ink: #ffede9;
+  --t-ink-2: #dcb6bc;
+  --t-ink-3: #a9899a;
+  --t-line: #3a2138;
+  --t-line-2: #4a2b45;
+  --t-line-accent: rgba(255, 122, 89, .32);
+  --t-accent: #ff7a59;
+  --t-accent-2: #ffb05e;
+  --t-on-accent: #2b1216;
+  --t-inverse: #ffeada;
+  --t-on-inverse: #2b1216;
+  --t-pink: #ff7a9a;
+  --t-pink-soft: #ffa8b8;
+  --t-cyan: #7fd8ff;
+  --t-violet: #c48bff;
+  --t-mint: #7ee0b8;
+  --t-warm: #ffc46b;
+  --t-glow-1: rgba(255, 110, 70, .28);
+  --t-glow-2: rgba(190, 80, 200, .24);
+  --t-glow-3: rgba(255, 170, 90, .16);
+  --t-head-a: rgba(27, 15, 31, .95);
+  --t-head-b: rgba(27, 15, 31, .66);
+  --t-ov-1: rgba(255, 236, 226, .034);
+  --t-ov-2: rgba(255, 236, 226, .055);
+  --t-ov-3: rgba(255, 236, 226, .08);
+  --t-ov-4: rgba(255, 236, 226, .15);
+  --t-inset: rgba(0, 0, 0, .32);
+  --t-scrim: rgba(20, 8, 16, .68);
+  --t-grid: rgba(255, 236, 226, .03);
+  --t-noise: rgba(255, 236, 226, .015);
+  --t-shadow: 0 18px 40px -22px rgba(20, 4, 12, .88);
+  --t-card-a: #341a33;
+  --t-card-b: #241326;
+  --t-card-c: #3d1f38;
+  --t-hero-a: rgba(58, 30, 54, .9);
+  --t-hero-b: rgba(30, 14, 32, .92);
+  --t-code-a: #2a1526;
+  --t-code-b: #1d0f1f;
+  --t-scheme: dark;
+  --t-meta: #1b0f1f;
+}
+
+/* ---------------------------- 06 晚上 20:00-24:00 ---------------------------
+   午夜靛蓝 · 灯下夜读：冷靛底 + 暖灯点缀，强调色冷青蓝
+   -------------------------------------------------------------------------- */
+html[data-theme="night"] {
+  --t-bg: #0a0e1c;
+  --t-bg-2: #0f1425;
+  --t-surface: #141a2e;
+  --t-surface-soft: rgba(26, 32, 54, .84);
+  --t-panel: rgba(20, 26, 46, .9);
+  --t-panel-2: rgba(30, 38, 62, .76);
+  --t-ink: #e8eefc;
+  --t-ink-2: #a9b6d4;
+  --t-ink-3: #788aa8;
+  --t-line: #1d253c;
+  --t-line-2: #26314f;
+  --t-line-accent: rgba(79, 184, 255, .3);
+  --t-accent: #4fb8ff;
+  --t-accent-2: #ffb85c;
+  --t-on-accent: #06121f;
+  --t-inverse: #eaf1ff;
+  --t-on-inverse: #071026;
+  --t-pink: #7fa8ff;
+  --t-pink-soft: #a9c4ff;
+  --t-cyan: #57dcff;
+  --t-violet: #a891ff;
+  --t-mint: #55e0ae;
+  --t-warm: #ffb85c;
+  --t-glow-1: rgba(79, 184, 255, .17);
+  --t-glow-2: rgba(255, 184, 92, .11);
+  --t-glow-3: rgba(120, 130, 255, .13);
+  --t-head-a: rgba(10, 14, 28, .94);
+  --t-head-b: rgba(10, 14, 28, .64);
+  --t-ov-1: rgba(255, 255, 255, .028);
+  --t-ov-2: rgba(255, 255, 255, .05);
+  --t-ov-3: rgba(255, 255, 255, .075);
+  --t-ov-4: rgba(255, 255, 255, .14);
+  --t-inset: rgba(0, 0, 0, .34);
+  --t-scrim: rgba(4, 8, 20, .68);
+  --t-grid: rgba(255, 255, 255, .028);
+  --t-noise: rgba(255, 255, 255, .014);
+  --t-shadow: 0 18px 40px -22px rgba(0, 0, 0, .9);
+  --t-card-a: #18203a;
+  --t-card-b: #0f1425;
+  --t-card-c: #1b2440;
+  --t-hero-a: rgba(30, 40, 70, .88);
+  --t-hero-b: rgba(12, 17, 32, .92);
+  --t-code-a: #101728;
+  --t-code-b: #0a0e1c;
+  --t-scheme: dark;
+  --t-meta: #0a0e1c;
+}
+
+/* ------------------------------ 切换过渡 -------------------------------- */
+html[data-theme] body {
+  transition: background-color .5s ease, color .5s ease;
+}
+html[data-theme] .site-head,
+html[data-theme] .fhead,
+html[data-theme] .board-strip {
+  transition: background .5s ease, border-color .5s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] body,
+  html[data-theme] .site-head,
+  html[data-theme] .fhead,
+  html[data-theme] .board-strip { transition: none; }
+}
+
+/* ==========================================================================
+   主题切换器（门户页 / 论坛页 / 文档页共用）
+   ========================================================================== */
+.theme-slot { position: relative; display: inline-flex; align-items: center; }
+
+.tm-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 11px;
+  border: 1px solid var(--t-line-2, #dde3ef);
+  border-radius: 10px;
+  background: var(--t-surface-soft, rgba(255, 255, 255, .8));
+  color: var(--t-ink-2, #4d5a72);
+  font: inherit; font-size: 12.5px; line-height: 1;
+  cursor: pointer; white-space: nowrap;
+  transition: border-color .2s ease, color .2s ease, background .2s ease;
+}
+.tm-btn:hover {
+  color: var(--t-ink, #0e1626);
+  border-color: var(--t-accent, #2b5cff);
+}
+.tm-btn:focus-visible {
+  outline: 2px solid var(--t-accent, #2b5cff);
+  outline-offset: 2px;
+}
+.tm-caret {
+  font-size: 9px; opacity: .62;
+  transition: transform .2s ease;
+}
+.tm-btn[aria-expanded="true"] .tm-caret { transform: rotate(180deg); }
+
+.tm-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px rgba(127, 137, 158, .35);
+}
+
+.tm-menu {
+  position: absolute; top: calc(100% + 9px); right: 0;
+  width: 236px; padding: 7px;
+  border: 1px solid var(--t-line, #e7eaf1);
+  border-radius: 15px;
+  background: var(--t-surface, #ffffff);
+  box-shadow: var(--t-shadow, 0 18px 40px -22px rgba(14, 22, 38, .38));
+  z-index: 200;
+  animation: tm-pop .16s cubic-bezier(.2, .75, .25, 1) both;
+}
+.tm-menu[hidden] { display: none; }
+
+@keyframes tm-pop {
+  from { opacity: 0; transform: translateY(-5px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.tm-menu-head {
+  margin: 4px 8px 7px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--t-ink-3, #8b96ab);
+}
+
+.tm-opt {
+  display: flex; align-items: center; gap: 9px;
+  width: 100%; padding: 8px 9px;
+  border: none; border-radius: 9px;
+  background: transparent; color: var(--t-ink-2, #4d5a72);
+  font: inherit; font-size: 13px; text-align: left;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease;
+}
+.tm-opt:hover { background: var(--t-ov-2, rgba(120, 140, 180, .09)); color: var(--t-ink, #0e1626); }
+.tm-opt[aria-selected="true"] {
+  background: var(--t-ov-2, rgba(120, 140, 180, .09));
+  color: var(--t-ink, #0e1626);
+  font-weight: 600;
+}
+.tm-opt .tm-name { flex: 1 1 auto; }
+.tm-opt .tm-range {
+  font-size: 11px; color: var(--t-ink-3, #8b96ab);
+  font-variant-numeric: tabular-nums;
+}
+.tm-opt .tm-cur {
+  font-size: 10px; font-weight: 700;
+  padding: 1px 5px; border-radius: 5px;
+  color: var(--t-accent, #2b5cff);
+  background: var(--t-ov-3, rgba(120, 140, 180, .12));
+}
+.tm-sep {
+  height: 1px; margin: 6px 8px;
+  background: var(--t-line, #e7eaf1);
+}
+
+/* 各时段预览色点 */
+.tm-dot[data-mode="auto"] {
+  background: conic-gradient(from 210deg,
+    #6b7dff, #ffb066, #7cc4ff, #ffc46b, #ff7a59, #4fb8ff, #6b7dff);
+}
+.tm-dot[data-mode="dawn"] { background: linear-gradient(135deg, #1b2450, #8b7dff); }
+.tm-dot[data-mode="morning"] { background: linear-gradient(135deg, #ffe0b8, #f2793d); }
+.tm-dot[data-mode="noon"] { background: linear-gradient(135deg, #cfe4ff, #1f7bff); }
+.tm-dot[data-mode="afternoon"] { background: linear-gradient(135deg, #ffe9bd, #d97f14); }
+.tm-dot[data-mode="dusk"] { background: linear-gradient(135deg, #ff9a6a, #c44bd6); }
+.tm-dot[data-mode="night"] { background: linear-gradient(135deg, #12203f, #4fb8ff); }
+
+/* 窄屏：只留色点，避免挤压导航 */
+@media (max-width: 720px) {
+  .tm-btn { padding: 0 9px; }
+  .tm-btn .tm-label { display: none; }
+  .tm-menu { width: 214px; }
+}
+
+/* ==========================================================================
+   跨页兼容补丁
+   原样式里有少量「深色底 + 半透明白字」的写法，在浅色时段下会看不见，
+   统一收到令牌上（未启用主题时这些规则不生效，保持原样）。
+   ========================================================================== */
+html[data-theme] .mk-tip .tp-d,
+html[data-theme] .mk-tip .tp-grid span,
+html[data-theme] .date-chip.active .n {
+  color: var(--t-on-inverse, #ffffff);
+  opacity: .66;
+}
+
+/* ==========================================================================
+   浅色时段「文字增强」令牌（可读性修正）
+   只在 morning / noon / afternoon 定义：这三套浅色底上，原深夜配色里的
+   近白色正文（#e6dff0 一类）和霓虹高亮（#ff9ed0 / #3fe0ff 一类）对比度不足。
+   深色时段（dawn / dusk / night）不定义以下令牌，引用处一律回退到原色，
+   因此三套深色主题的观感保持完全不变。
+   -------------------------------------------------------------------------- */
+
+html[data-theme="morning"] {
+  /* 晨光：暖白底，正文用暖墨色，强调色压深到 ≥5:1 */
+  --t-ink-3-text: #82685f;
+  --t-pink-text: #ce2146;
+  --t-cyan-text: #2b7482;
+  --t-cyan-text-hover: #1d5b67;
+  --t-mint-text: #21785b;
+  --t-warm-text: #8f6217;
+  --t-violet-text: #7b4ae2;
+  --t-prose: #2b1d1b;
+  --t-prose-2: #38251f;
+  --t-prose-3: #412c25;
+  --t-prose-head: #241715;
+  --t-prose-strong: #1d1210;
+  --t-prose-feed: #6d554d;
+}
+
+html[data-theme="noon"] {
+  /* 正午：冷白底，正文用深藏青，强调色压深到 ≥5:1 */
+  --t-ink-3-text: #5b6e8d;
+  --t-pink-text: #ca2161;
+  --t-cyan-text: #17738e;
+  --t-cyan-text-hover: #0f5468;
+  --t-mint-text: #14785b;
+  --t-warm-text: #8f6017;
+  --t-violet-text: #4c5ae2;
+  --t-prose: #0a1a30;
+  --t-prose-2: #12253f;
+  --t-prose-3: #172c49;
+  --t-prose-head: #061224;
+  --t-prose-strong: #030c18;
+  --t-prose-feed: #40567a;
+}
+
+html[data-theme="afternoon"] {
+  /* 午后：米黄底，正文用深褐，强调色压深到 ≥5:1 */
+  --t-ink-3-text: #7c6c55;
+  --t-pink-text: #b14d1d;
+  --t-cyan-text: #277770;
+  --t-cyan-text-hover: #1c5b56;
+  --t-mint-text: #317856;
+  --t-warm-text: #916218;
+  --t-violet-text: #7551db;
+  --t-prose: #2a2012;
+  --t-prose-2: #332714;
+  --t-prose-3: #3a2d18;
+  --t-prose-head: #241b0e;
+  --t-prose-strong: #1a1208;
+  --t-prose-feed: #6a5a40;
+}

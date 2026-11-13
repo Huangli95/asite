@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>角色列表 · 小说板块</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/novel.css">
+<script src="/static/theme.js"></script>
+</head>
+<body class="nv-body" data-page="characters">
+<div class="nv-bg"></div>
+
+<header class="nv-top">
+  <a class="nv-brand" href="/novel"><i>书</i>小说板块</a>
+  <nav class="nv-nav">
+    <a href="/novel">全部小说</a>
+    <a data-link="/novel/book/{id}" href="/novel">书籍详情</a>
+    <a data-link="/novel/book/{id}/timeline" href="/novel">世界线大事件</a>
+    <a data-link="/novel/book/{id}/graph" href="/novel">关系网</a>
+  </nav>
+  <div class="nv-user" id="nv-user">…</div>
+</header>
+
+<main class="nv-wrap" id="nv-main">
+  <div class="nv-crumb"><a href="/novel">小说书架</a> / <a id="nv-crumb-book" data-link="/novel/book/{id}" href="/novel">书籍</a> / 角色</div>
+  <h1 class="nv-h1" id="nv-title">角色</h1>
+  <p class="nv-sub">共 <b id="nv-char-count">0</b> 个角色 · 点击卡片进入详情与事迹时间线</p>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">全部角色</h2>
+    <div class="nv-chars" id="nv-chars"><div class="nv-empty">加载中…</div></div>
+  </div>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">新增角色</h2>
+    <form id="nv-char-form" autocomplete="off">
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>名称 <em>必填</em></span>
+          <input class="nv-input" data-name="name" maxlength="60" placeholder="角色名" required>
+        </label>
+        <label class="nv-field">
+          <span>性别</span>
+          <input class="nv-input" data-name="gender" maxlength="20" placeholder="男 / 女 / 不明">
+        </label>
+      </div>
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>身份 / 职业</span>
+          <input class="nv-input" data-name="identity" maxlength="60" placeholder="例如：帝国第七兵团指挥官">
+        </label>
+        <label class="nv-field">
+          <span>年龄</span>
+          <input class="nv-input" data-name="age" type="number" min="0" max="100000" step="1" placeholder="数字">
+        </label>
+      </div>
+      <label class="nv-field">
+        <span>简介</span>
+        <textarea class="nv-textarea" data-name="intro" maxlength="2000" placeholder="外貌、性格、动机、与其他角色的恩怨"></textarea>
+      </label>
+      <label class="nv-check">
+        <input type="checkbox" data-name="is_protagonist"> 设为主角（关系网默认以主角为中心节点）
+      </label>
+      <div id="nv-char-err"></div>
+      <div class="nv-actions">
+        <button class="nv-btn primary" id="nv-char-submit" type="submit">添加角色</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script src="/static/novel.js" defer></script>
+</body>
+</html>

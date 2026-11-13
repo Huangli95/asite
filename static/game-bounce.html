@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#070c18">
+<title>弹球打砖 · 小游戏</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/games.css?v=20261111b">
+<script src="/static/theme.js"></script>
+<style>
+/* 配置弹窗（仅本页使用） */
+.gb-cfg[hidden] { display: none; }
+.gb-cfg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+.gbf-mask { position: absolute; inset: 0; background: rgba(4, 8, 16, .66); backdrop-filter: blur(3px); }
+.gbf-card { position: relative; display: flex; flex-direction: column; width: min(560px, calc(100vw - 28px)); max-height: min(80vh, 740px); border-radius: 16px; border: 1px solid rgba(110, 231, 255, .28); background: linear-gradient(180deg, rgba(15, 24, 40, .98), rgba(9, 15, 26, .98)); box-shadow: 0 24px 64px rgba(0, 0, 0, .5); color: #dbe9ff; }
+.gbf-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid rgba(110, 231, 255, .14); }
+.gbf-head b { font-size: 16px; color: #eaf6ff; }
+.gbf-head i { font-style: normal; font-size: 11px; color: #7f9bb9; }
+.gbf-x { margin-left: auto; width: 30px; height: 30px; border-radius: 9px; border: 1px solid rgba(110, 231, 255, .22); background: rgba(110, 231, 255, .08); color: #cde8ff; font-size: 18px; line-height: 1; cursor: pointer; }
+.gbf-body { padding: 8px 16px 4px; overflow: auto; -webkit-overflow-scrolling: touch; }
+.gbf-group { padding: 8px 0 4px; }
+.gbf-group h4 { margin: 6px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: #6ee7ff; }
+.gbf-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; }
+.gbf-row span { font-size: 13px; color: #b8cde6; }
+.gbf-row input, .gbf-row select { flex: none; width: 96px; padding: 7px 9px; text-align: right; font-size: 13px; color: #eaf6ff; border-radius: 9px; border: 1px solid rgba(110, 231, 255, .2); background: rgba(9, 16, 28, .9); font-family: inherit; }
+.gbf-row select { width: 132px; cursor: pointer; -webkit-appearance: none; appearance: none; padding-right: 24px;
+  background-image: linear-gradient(45deg, transparent 50%, #6ee7ff 50%), linear-gradient(135deg, #6ee7ff 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% - 1px), calc(100% - 9px) calc(50% - 1px);
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+.gbf-row select option { background: #0b1220; color: #eaf6ff; }
+.gbf-row input:focus, .gbf-row select:focus { outline: none; border-color: rgba(110, 231, 255, .7); box-shadow: 0 0 0 3px rgba(110, 231, 255, .14); }
+.gbf-note { margin: 10px 0 4px; font-size: 11px; line-height: 1.6; color: #7f9bb9; }
+.gbf-foot { display: flex; gap: 10px; padding: 12px 16px 14px; border-top: 1px solid rgba(110, 231, 255, .14); }
+.gbf-btn { flex: 1; padding: 11px 0; border-radius: 11px; font-size: 14px; cursor: pointer; border: 1px solid rgba(110, 231, 255, .24); background: rgba(110, 231, 255, .08); color: #cde8ff; }
+.gbf-btn--main { border-color: transparent; background: linear-gradient(180deg, #37e0ff, #17b6e0); color: #04121c; font-weight: 700; }
+.gm-ghost.is-on { border-color: rgba(110, 231, 255, .7); color: #6ee7ff; }
+</style>
+</head>
+<body class="gb-body">
+
+<header class="gm-top">
+  <a class="gm-brand" href="/games"><i>游</i>小游戏</a>
+  <nav class="gm-nav">
+    <a href="/games">游戏大厅</a>
+    <a href="/">主站首页</a>
+    <a href="/forum">社区论坛</a>
+  </nav>
+  <div class="gm-top-right">
+    <button class="gm-ghost" id="gb-cfg-open" type="button" aria-pressed="false">设置</button>
+    <button class="gm-ghost" id="gb-restart" type="button">重开</button>
+  </div>
+</header>
+
+<div class="gb-shell">
+  <div class="gb-hud">
+    <span class="gb-chip"><em>球</em><b id="gb-balls">1</b></span>
+    <span class="gb-chip"><em>波次</em><b id="gb-wave">1</b></span>
+    <span class="gb-chip"><em>剩余</em><b id="gb-remain">0</b></span>
+    <span class="gb-chip gb-chip--life"><em>生命</em><b id="gb-lives">3</b></span>
+    <span class="gb-chip"><em>分数</em><b id="gb-score">0</b></span>
+  </div>
+
+  <div class="gb-modes" id="gb-modes" role="group" aria-label="方块下落模式">
+    <button class="gb-mode is-on" id="gb-mode-drop" type="button" aria-pressed="true">持续下落</button>
+    <button class="gb-mode" id="gb-mode-row" type="button" aria-pressed="false">逐行下降</button>
+    <button class="gb-mode is-on" id="gb-refill" type="button" aria-pressed="true">补行 开</button>
+  </div>
+  <div class="gb-mode-hint" id="gb-mode-hint">方块随时间持续下落，波次越高越急</div>
+
+  <div class="gb-stage" id="gb-stage">
+    <canvas id="gb-canvas"></canvas>
+    <div class="gb-tip" id="gb-tip">拖动画面移动发射器 · 长按 ⟲ ⟳ 调角度 · 点「发射」开球 · 黄色 +1 块直接加球 · 某行若有血量 ≥9 的方块，该行有 30% 概率随机出 1 个消除特效块（十字 / 九宫 / 整行 / 整列 / 行列）</div>
+    <div class="gb-over" id="gb-over" hidden>
+      <div class="gb-over-card">
+        <h2>本局结束</h2>
+        <p class="gb-over-reason" id="gb-over-reason">方块触底扣生命，生命耗尽</p>
+        <p>得分 <b id="gb-over-score">0</b> · 波次 <b id="gb-over-wave">1</b></p>
+        <button class="gb-again" id="gb-again" type="button">再来一局</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="gb-controls">
+    <div class="gb-pad">
+      <button class="gb-btn" id="gb-left" type="button" aria-label="左移">←</button>
+      <button class="gb-btn" id="gb-right" type="button" aria-label="右移">→</button>
+    </div>
+    <button class="gb-fire" id="gb-fire" type="button">发射</button>
+    <div class="gb-pad">
+      <button class="gb-btn" id="gb-rot-left" type="button" aria-label="逆时针旋转">↺</button>
+      <button class="gb-btn" id="gb-rot-right" type="button" aria-label="顺时针旋转">↻</button>
+    </div>
+  </div>
+</div>
+
+<div class="gb-cfg" id="gb-cfg" hidden></div>
+
+<script src="/static/game-bounce.js?v=20261113c"></script>
+</body>
+</html>
+

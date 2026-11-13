@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>书籍详情 · 小说板块</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/novel.css?v=20261106c">
+<script src="/static/theme.js"></script>
+</head>
+<body class="nv-body" data-page="book">
+<div class="nv-bg"></div>
+
+<header class="nv-top">
+  <a class="nv-brand" href="/novel"><i>书</i>小说板块</a>
+  <nav class="nv-nav">
+    <a href="/novel">全部小说</a>
+    <a href="/novel/book/{id}/characters" data-link="/novel/book/{id}/characters">角色</a>
+    <a href="/novel/book/{id}/timeline" data-link="/novel/book/{id}/timeline">世界线大事件</a>
+    <a href="/novel/book/{id}/graph" data-link="/novel/book/{id}/graph">关系网</a>
+  </nav>
+  <div class="nv-user" id="nv-user">…</div>
+</header>
+
+<main class="nv-wrap" id="nv-main">
+  <div class="nv-crumb"><a href="/novel">小说书架</a> / 书籍详情</div>
+  <h1 class="nv-h1" id="nv-title">加载中…</h1>
+  <p class="nv-sub" id="nv-sub"></p>
+
+  <div class="nv-actions" id="nv-read-actions">
+    <a class="nv-btn primary" id="nv-start-read" href="/novel">从第一章开始阅读</a>
+  </div>
+
+  <div class="nv-card">
+    <div class="nv-stats">
+      <div class="nv-stat"><b id="nv-stat-chapters">0</b><span>章节</span></div>
+      <div class="nv-stat"><b id="nv-stat-chars">0</b><span>角色</span></div>
+      <div class="nv-stat"><b id="nv-stat-rels">0</b><span>关系</span></div>
+      <div class="nv-stat"><b id="nv-stat-events">0</b><span>世界大事件</span></div>
+    </div>
+
+    <!-- 完结目标与阶段任务：写到目标章节数后自动完结，也可手动标记完结 -->
+    <section class="nv-goal" id="nv-goal">
+      <header class="nv-goal-head">
+        <h4>完结目标</h4>
+        <span class="nv-badge" id="nv-goal-status">连载中</span>
+      </header>
+      <p class="nv-goal-text" id="nv-goal-text">加载中…</p>
+      <div id="nv-goal-progress"></div>
+      <ol class="nv-stages" id="nv-stages"></ol>
+      <div class="nv-actions">
+        <button class="nv-btn" id="nv-goal-edit" type="button">改目标 / 阶段</button>
+        <button class="nv-btn primary" id="nv-goal-finish" type="button">标记完结</button>
+      </div>
+      <div id="nv-goal-err"></div>
+      <form class="nv-goal-form" id="nv-goal-form" hidden>
+        <label class="nv-field">
+          <span>完结目标</span>
+          <textarea class="nv-textarea" data-name="completion_goal" rows="2" maxlength="2000" placeholder="写到什么程度算完结"></textarea>
+        </label>
+        <div class="nv-row">
+          <label class="nv-field">
+            <span>目标章节数</span>
+            <input class="nv-input" data-name="target_chapters" type="number" min="1" max="5000" step="1">
+          </label>
+          <label class="nv-field">
+            <span>目标字数（可选）</span>
+            <input class="nv-input" data-name="target_words" type="number" min="0" max="100000000" step="1000">
+          </label>
+        </div>
+        <label class="nv-field">
+          <span>阶段任务（每行：阶段名 | 起始-结束 | 目标）</span>
+          <textarea class="nv-textarea" data-name="stages_text" rows="3" placeholder="守灯初起 | 1-15 | 交代灯册来历"></textarea>
+        </label>
+        <div class="nv-actions">
+          <button class="nv-btn primary" type="submit">保存目标</button>
+          <button class="nv-btn" id="nv-goal-cancel" type="button">取消</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 翻书动画：点书页翻面（默认正面=背景描述，背面=世界观设定） -->
+    <div class="nv-flip-stage">
+      <div class="nv-flip" id="nv-flip" title="点击翻页">
+        <section class="nv-page front">
+          <h4>背景描述</h4>
+          <h3 id="nv-flip-front-title">—</h3>
+          <div class="nv-page-body" id="nv-flip-front-body"></div>
+          <div class="nv-page-foot">
+            <span id="nv-flip-front-foot"></span>
+            <span>点击书页翻面 →</span>
+          </div>
+        </section>
+        <section class="nv-page back">
+          <h4>世界观设定</h4>
+          <h3>世界设定</h3>
+          <div class="nv-page-body" id="nv-flip-back-body"></div>
+          <div class="nv-page-foot">
+            <span id="nv-flip-back-foot"></span>
+            <span>← 点击返回</span>
+          </div>
+        </section>
+      </div>
+      <div class="nv-flip-tip">翻书动画为纯 CSS 3D 实现，零依赖</div>
+    </div>
+
+    <div class="nv-actions">
+      <a class="nv-btn" data-link="/novel/book/{id}/timeline" href="/novel">世界线大事件（时间线）</a>
+      <a class="nv-btn" data-link="/novel/book/{id}/characters" href="/novel">角色列表</a>
+      <a class="nv-btn" data-link="/novel/book/{id}/graph" href="/novel">关系网拓扑图</a>
+    </div>
+  </div>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">章节目录</h2>
+    <p class="nv-muted" style="font-size:12.5px;margin:0 0 14px">方格里的数字就是章节序号，点哪个就跳到哪一章正文。</p>
+    <div id="nv-chapters"><div class="nv-empty">加载中…</div></div>
+  </div>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">上传新章节</h2>
+    <p class="nv-muted" style="font-size:12.5px;margin:0 0 16px">
+      摘要两段为强制项：一句话摘要 ≤32 字、概述 ≤200 字，缺任一或超长服务端直接拒绝写入。
+    </p>
+    <form id="nv-chapter-form" autocomplete="off">
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>章节标题 <em>必填</em></span>
+          <input class="nv-input" data-name="title" maxlength="200" placeholder="第一章 雪原上的信号" required>
+        </label>
+        <label class="nv-field">
+          <span>章节序号 <em>留空自动顺延</em></span>
+          <input class="nv-input" data-name="seq" type="number" min="1" step="1" placeholder="自动">
+        </label>
+      </div>
+
+      <label class="nv-field">
+        <span>正文内容</span>
+        <textarea class="nv-textarea" data-name="content" style="min-height:180px" placeholder="章节正文"></textarea>
+      </label>
+
+      <label class="nv-field">
+        <span>一句话摘要 <em id="nv-one-line-count">0/32</em></span>
+        <input class="nv-input" id="nv-one-line" data-name="one_line_summary" maxlength="64" placeholder="≤32 字，AI 一眼看懂这一章发生了什么">
+      </label>
+
+      <label class="nv-field">
+        <span>概述 <em id="nv-summary-count">0/200</em></span>
+        <textarea class="nv-textarea" id="nv-summary" data-name="summary" maxlength="400" placeholder="≤200 字，关键转折、出场角色、留下的伏笔"></textarea>
+      </label>
+
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>世界大事件描述 <em>可选，填了自动同步时间线</em></span>
+          <input class="nv-input" data-name="world_event" maxlength="500" placeholder="例如：北境长夜降临，帝国历 10 年">
+        </label>
+        <label class="nv-field">
+          <span>事件发生时间 <em>虚构纪年也行</em></span>
+          <input class="nv-input" data-name="world_event_time" maxlength="64" placeholder="例如：帝国历 10 年">
+        </label>
+      </div>
+
+      <div id="nv-chapter-err"></div>
+      <div class="nv-actions">
+        <button class="nv-btn primary" id="nv-chapter-submit" type="submit">保存章节</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script src="/static/novel.js?v=20261106c" defer></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="42%" r="62%">
+      <stop offset="0%" stop-color="#ffd6ec"/>
+      <stop offset="55%" stop-color="#ff6bb5"/>
+      <stop offset="100%" stop-color="#b78bff"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#0b0813"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="15.5" fill="none" stroke="#ff6bb5" stroke-opacity="0.35"/>
+  <g filter="url(#glow)" fill="url(#g)">
+    <ellipse cx="32" cy="15" rx="6.4" ry="9.4"/>
+    <ellipse cx="32" cy="15" rx="6.4" ry="9.4" transform="rotate(72 32 32)"/>
+    <ellipse cx="32" cy="15" rx="6.4" ry="9.4" transform="rotate(144 32 32)"/>
+    <ellipse cx="32" cy="15" rx="6.4" ry="9.4" transform="rotate(216 32 32)"/>
+    <ellipse cx="32" cy="15" rx="6.4" ry="9.4" transform="rotate(288 32 32)"/>
+  </g>
+  <circle cx="32" cy="32" r="4.6" fill="#3fe0ff" opacity="0.95"/>
+  <circle cx="32" cy="32" r="1.8" fill="#fff"/>
+</svg>

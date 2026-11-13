@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>关系网拓扑 · 小说板块</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/novel.css">
+<script src="/static/theme.js"></script>
+</head>
+<body class="nv-body" data-page="graph">
+<div class="nv-bg"></div>
+
+<header class="nv-top">
+  <a class="nv-brand" href="/novel"><i>书</i>小说板块</a>
+  <nav class="nv-nav">
+    <a href="/novel">全部小说</a>
+    <a data-link="/novel/book/{id}" href="/novel">书籍详情</a>
+    <a data-link="/novel/book/{id}/characters" href="/novel">角色列表</a>
+    <a data-link="/novel/book/{id}/timeline" href="/novel">世界线大事件</a>
+  </nav>
+  <div class="nv-user" id="nv-user">…</div>
+</header>
+
+<main class="nv-wrap" id="nv-main">
+  <div class="nv-crumb"><a href="/novel">小说书架</a> / <a data-link="/novel/book/{id}" href="/novel">书籍</a> / 关系网</div>
+  <h1 class="nv-h1" id="nv-title">关系网</h1>
+  <p class="nv-sub">当前中心：<b id="nv-center-name">—</b> · 共 <b id="nv-rel-count">0</b> 条关系 · 点击任一角色节点，以它为中心重绘</p>
+
+  <div class="nv-card">
+    <div class="nv-graph-toolbar">
+      <span id="nv-graph-note">加载中…</span>
+    </div>
+    <div class="nv-graph-stage" id="nv-stage">
+      <canvas id="nv-canvas"></canvas>
+    </div>
+    <div class="nv-legend">
+      <span><i style="background:linear-gradient(135deg,var(--t-accent),var(--t-accent-2))"></i>中心节点</span>
+      <span><i style="background:var(--t-card-a)"></i>相邻角色</span>
+      <span><i style="background:var(--t-accent-2);opacity:.5"></i>不同类型的关系连线（颜色按关系类型散列）</span>
+    </div>
+    <div class="nv-rel-list" id="nv-relations"></div>
+  </div>
+
+  <div class="nv-card">
+    <h2 class="nv-h2">新增关系</h2>
+    <form id="nv-rel-form" autocomplete="off">
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>角色 A</span>
+          <select class="nv-input nv-select-char" data-name="character_a"></select>
+        </label>
+        <label class="nv-field">
+          <span>角色 B</span>
+          <select class="nv-input nv-select-char" data-name="character_b"></select>
+        </label>
+      </div>
+      <div class="nv-grid2">
+        <label class="nv-field">
+          <span>关系类型 <em>必填</em></span>
+          <input class="nv-input" data-name="type" maxlength="32" placeholder="盟友 / 敌人 / 师徒 / 血亲" required>
+        </label>
+        <label class="nv-field">
+          <span>备注 <em>可选</em></span>
+          <input class="nv-input" data-name="note" maxlength="200" placeholder="补充说明">
+        </label>
+      </div>
+      <div id="nv-rel-err"></div>
+      <div class="nv-actions">
+        <button class="nv-btn primary" id="nv-rel-submit" type="submit">保存关系</button>
+      </div>
+    </form>
+  </div>
+</main>
+
+<script src="/static/novel.js" defer></script>
+</body>
+</html>
