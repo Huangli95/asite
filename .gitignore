@@ -3,3 +3,9 @@ __pycache__
 backups
 data
 temp
+tools
+docs
+*.bak*
+*.db-wal
+*.db-shm
+*.key

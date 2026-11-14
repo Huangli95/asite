@@ -1222,6 +1222,14 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
   var BELOW_GRACE = 0.8;          /* 未进场的球（刚出炮口）在底线下方滞留多久后兜底回收（秒） */
   var BELOW_RESCUE = 0.45;        /* 已进场的球掉到线下且仍在竖直下坠：几乎立刻回收（秒） */
   var BELOW_RESCUE_FLAT = 1.6;    /* 已进场的球掉到线下但处于水平横飞：给足「等出点＋飞过去撞点」的时间（秒） */
+  /* 回收特效：必须落在球真正消失的坐标上（可能已经在回收线下方），
+     只有实在越出屏幕下边界时才钳到可视区内，避免特效看不见 */
+  function recycleFx(b) {
+    var ey = Math.min(b.y, H - 2);
+    if (ey < 2) ey = 2;
+    addSparks(b.x, ey, 6, DANGER_COLOR, 120);
+  }
+
   function ballLost(b) {
     if (!(b.y > state.lineY)) {
       /* 回到有效场地，标记已进场并清零滞留计时 */
@@ -1267,7 +1275,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
         if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy); }
 
         if (ballLost(b)) {
-          addSparks(b.x, state.lineY, 6, DANGER_COLOR, 120);
+          recycleFx(b);
           balls.splice(i, 1);
           recycled = true;
           break;
@@ -1281,7 +1289,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
         /* 兜底再判一次：方块碰撞发生在上面那次判定之后，reflect 可能在本帧最后一步
            把球心挤出底线（且不改变 vy 方向），这里补一轮，保证球不会在线下多活一帧 */
         if (ballLost(b)) {
-          addSparks(b.x, state.lineY, 6, DANGER_COLOR, 120);
+          recycleFx(b);
           balls.splice(i, 1);
           recycled = true;
           break;
@@ -2004,7 +2012,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
       spawnWave: spawnWave, measure: measure, relocateBlocks: relocateBlocks,
       blocksBottom: blocksBottom, ballsInField: ballsInField,
       update: update, updateBlocks: updateBlocks, updateBalls: updateBalls,
-      get guide() { return guide; }, placeGuide: placeGuide, deflect: deflect,
+      get guide() { return guide; }, get sparks() { return sparks; }, get rings() { return rings; }, placeGuide: placeGuide, deflect: deflect,
       get FLAT_RATIO() { return CFG.flat.ratio; },
       get FLAT_HOLD() { return CFG.flat.hold; },
       get FLAT_KICK() { return CFG.flat.kickDeg * Math.PI / 180; },
