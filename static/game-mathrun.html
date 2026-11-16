@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>算术闯关 · 小游戏</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/games.css?v=20261111b">
+<script src="/static/theme.js"></script>
+<style>
+  /* 游戏页：固定深色「游戏机屏幕」布局，整屏不滚动 */
+  body.mm-body { height: 100vh; height: 100dvh; overflow: hidden; }
+
+  .mm-shell {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 12px 12px;
+  }
+
+  .mm-hud { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .mm-chip {
+    flex: 1 1 0;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 10px;
+    border-radius: 11px;
+    border: 1px solid rgba(110, 231, 255, .16);
+    background: rgba(10, 18, 32, .72);
+  }
+
+  .mm-chip em {
+    font-style: normal;
+    font-size: 11px;
+    letter-spacing: .06em;
+    color: #7f9bb9;
+  }
+
+  .mm-chip b {
+    font-size: 17px;
+    color: #eaf6ff;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mm-stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(110, 231, 255, .18);
+    background: #060b16;
+    box-shadow: inset 0 0 60px rgba(30, 90, 140, .18);
+  }
+
+  .mm-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  .mm-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 22px 20px;
+    text-align: center;
+    background: rgba(4, 8, 16, .82);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+
+  .mm-veil[hidden] { display: none; }
+
+  .mm-veil h2 { margin: 0; font-size: clamp(19px, 5vw, 24px); color: #eaf6ff; }
+  .mm-veil p { margin: 0; max-width: 470px; font-size: 13px; line-height: 1.75; color: #93aeca; }
+  .mm-veil ul { margin: 0; padding-left: 18px; max-width: 470px; text-align: left; font-size: 13px; line-height: 1.85; color: #93aeca; }
+  .mm-veil b { color: #6ee7ff; }
+
+  .mm-stat { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: #b8cde6; }
+  .mm-stat b { font-size: 19px; color: #eaf6ff; font-variant-numeric: tabular-nums; }
+
+  .mm-btn {
+    padding: 11px 22px;
+    border-radius: 11px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid rgba(110, 231, 255, .24);
+    background: rgba(110, 231, 255, .1);
+    color: #cde8ff;
+  }
+
+  .mm-btn--main {
+    border-color: transparent;
+    background: linear-gradient(180deg, #37e0ff, #17b6e0);
+    color: #04121c;
+    font-weight: 700;
+  }
+
+  .mm-controls { display: flex; gap: 10px; }
+
+  .mm-pad {
+    flex: 1 1 0;
+    height: 50px;
+    border-radius: 13px;
+    font-size: 16px;
+    cursor: pointer;
+    border: 1px solid rgba(110, 231, 255, .22);
+    background: rgba(110, 231, 255, .08);
+    color: #cde8ff;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .mm-pad:active { background: rgba(110, 231, 255, .2); }
+  .mm-pad--mini { flex: 0 0 84px; font-size: 13px; }
+
+  /* 设置弹窗 */
+  .mm-cfg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+  .mm-cfg[hidden] { display: none; }
+
+  .mm-mask { position: absolute; inset: 0; background: rgba(4, 8, 16, .66); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+
+  .mm-cfg-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(560px, calc(100vw - 28px));
+    max-height: min(82vh, 760px);
+    border-radius: 16px;
+    border: 1px solid rgba(110, 231, 255, .28);
+    background: linear-gradient(180deg, rgba(15, 24, 40, .98), rgba(9, 15, 26, .98));
+    box-shadow: 0 24px 64px rgba(0, 0, 0, .5);
+    color: #dbe9ff;
+  }
+
+  .mm-cfg-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid rgba(110, 231, 255, .14); }
+  .mm-cfg-head h3 { margin: 0; font-size: 15px; }
+
+  .mm-x {
+    margin-left: auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    border: 1px solid rgba(110, 231, 255, .22);
+    background: rgba(110, 231, 255, .08);
+    color: #cde8ff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .mm-cfg-body { padding: 8px 16px 4px; overflow: auto; -webkit-overflow-scrolling: touch; }
+
+  .mm-group { padding: 8px 0 4px; }
+  .mm-group h4 { margin: 6px 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: #6ee7ff; }
+
+  .mm-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 5px 0; }
+  .mm-row span { font-size: 13px; color: #b8cde6; }
+
+  .mm-row input,
+  .mm-row select {
+    flex: none;
+    width: 96px;
+    padding: 7px 9px;
+    text-align: right;
+    font-size: 13px;
+    color: #eaf6ff;
+    border-radius: 9px;
+    border: 1px solid rgba(110, 231, 255, .2);
+    background: rgba(9, 16, 28, .9);
+    font-family: inherit;
+  }
+
+  .mm-row select {
+    width: 132px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    padding-right: 24px;
+    background-image: linear-gradient(45deg, transparent 50%, #6ee7ff 50%), linear-gradient(135deg, #6ee7ff 50%, transparent 50%);
+    background-position: calc(100% - 14px) calc(50% - 1px), calc(100% - 9px) calc(50% - 1px);
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  .mm-row input:focus,
+  .mm-row select:focus { outline: none; border-color: rgba(110, 231, 255, .7); box-shadow: 0 0 0 3px rgba(110, 231, 255, .14); }
+
+  .mm-note { margin: 10px 0 4px; font-size: 11px; line-height: 1.6; color: #7f9bb9; }
+
+  .mm-cfg-foot { display: flex; gap: 10px; padding: 12px 16px 14px; border-top: 1px solid rgba(110, 231, 255, .14); }
+  .mm-cfg-foot .mm-btn { flex: 1; }
+
+  @media (max-height: 560px) {
+    .mm-chip b { font-size: 15px; }
+    .mm-pad { height: 44px; }
+  }
+</style>
+</head>
+<body class="gm-body mm-body">
+
+<header class="gm-top">
+  <a class="gm-brand" href="/games"><i>游</i>小游戏</a>
+  <nav class="gm-nav">
+    <a href="/games">游戏大厅</a>
+    <a href="/">主站首页</a>
+    <a href="/forum">社区论坛</a>
+  </nav>
+  <div class="gm-top-right">
+    <button class="gm-ghost" id="mm-cfg-open" type="button">设置</button>
+    <button class="gm-ghost" id="mm-restart" type="button">重开</button>
+  </div>
+</header>
+
+<main class="mm-shell">
+  <div class="mm-hud">
+    <div class="mm-chip"><em>关卡</em><b id="mm-level">1</b></div>
+    <div class="mm-chip"><em>人数</em><b id="mm-count">6</b></div>
+    <div class="mm-chip"><em>进度</em><b id="mm-progress">0/8</b></div>
+    <div class="mm-chip"><em>总分</em><b id="mm-score">0</b></div>
+  </div>
+
+  <div class="mm-stage" id="mm-stage">
+    <canvas id="mm-canvas"></canvas>
+
+    <div class="mm-veil" id="mm-start">
+      <h2>算术闯关</h2>
+      <p>小人站在底线，运算门从上方落下。<b>站到门的哪半边，人数就按那半边的算式变化</b>——<b>+12</b> 是加人，<b>7+5</b> 也是这样算，<b>×2</b> 按当前人数翻倍，<b>÷3</b> 直接除。</p>
+      <ul>
+        <li>撑过本关全部门数即闯关成功，下一关门更多、下得更快、算式更复杂；</li>
+        <li>过关后只按设定比例把队员带入下一关（默认 60%），别指望一路滚雪球；</li>
+        <li>人数归零本局结束，回到第一关；</li>
+        <li>操作：<b>← →</b> 或 <b>A D</b> 移动，也可直接拖动画面；手机按下方左右键。</li>
+      </ul>
+      <button class="mm-btn mm-btn--main" id="mm-start-btn" type="button">开始游戏</button>
+    </div>
+
+    <div class="mm-veil" id="mm-clear" hidden>
+      <h2>闯关成功</h2>
+      <p id="mm-clear-level">第 1 关</p>
+      <div class="mm-stat"><span>剩余人数</span><b id="mm-clear-count">0</b></div>
+      <div class="mm-stat"><span>带入下一关</span><b id="mm-clear-carry">0</b></div>
+      <div class="mm-stat"><span>本关得分</span><b id="mm-clear-score">+0</b></div>
+      <button class="mm-btn mm-btn--main" id="mm-next" type="button">进入下一关</button>
+    </div>
+
+    <div class="mm-veil" id="mm-over" hidden>
+      <h2 id="mm-over-title">本局结束</h2>
+      <p id="mm-over-text">人数归零</p>
+      <div class="mm-stat"><span>到达关卡</span><b id="mm-over-level">1</b></div>
+      <div class="mm-stat"><span>总分</span><b id="mm-over-score">0</b></div>
+      <button class="mm-btn mm-btn--main" id="mm-again" type="button">再来一局</button>
+    </div>
+  </div>
+
+  <div class="mm-controls">
+    <button class="mm-pad" id="mm-left" type="button" aria-label="向左">◀</button>
+    <button class="mm-pad mm-pad--mini" id="mm-pause" type="button">暂停</button>
+    <button class="mm-pad" id="mm-right" type="button" aria-label="向右">▶</button>
+  </div>
+</main>
+
+<div class="mm-cfg" id="mm-cfg" hidden>
+  <div class="mm-mask" id="mm-cfg-mask"></div>
+  <div class="mm-cfg-card">
+    <div class="mm-cfg-head">
+      <h3>设置</h3>
+      <button class="mm-x" id="mm-cfg-close" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="mm-cfg-body" id="mm-cfg-body"></div>
+    <div class="mm-cfg-foot">
+      <button class="mm-btn" id="mm-cfg-reset" type="button">恢复默认</button>
+      <button class="mm-btn mm-btn--main" id="mm-cfg-ok" type="button">完成</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/game-mathrun.js?v=20261117b"></script>
+</body>
+</html>
