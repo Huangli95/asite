@@ -8,47 +8,58 @@
 <link rel="stylesheet" href="/static/games.css?v=20261111b">
 <script src="/static/theme.js"></script>
 <style>
-  /* 游戏页：固定深色「游戏机屏幕」布局，整屏不滚动 */
+  /* 游戏页：固定深色「游戏机屏幕」布局，整屏不滚动（滚动会让底部按键压住画面和地面） */
   body.mm-body { height: 100vh; height: 100dvh; overflow: hidden; }
 
   .mm-shell {
     flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;              /* 压缩纵向间距，把省下的高度全部让给游戏画面 */
     min-height: 0;
-    padding: 10px 12px 12px;
+    padding: 3px 8px 5px;
   }
 
-  .mm-hud { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* HUD 单行横排：4 个数值不再换成两行，省下的整行高度直接变成下落画面 */
+  .mm-hud { display: flex; gap: 5px; flex-wrap: nowrap; }
 
   .mm-chip {
     flex: 1 1 0;
-    min-width: 72px;
+    min-width: 0;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 6px 10px;
-    border-radius: 11px;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 4px;
+    padding: 2px 6px;      /* HUD 压薄，换取更长的下落画面 */
+    border-radius: 9px;
     border: 1px solid rgba(110, 231, 255, .16);
     background: rgba(10, 18, 32, .72);
   }
 
   .mm-chip em {
     font-style: normal;
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: .06em;
     color: #7f9bb9;
   }
 
   .mm-chip b {
-    font-size: 17px;
+    font-size: 13px;
     color: #eaf6ff;
     font-variant-numeric: tabular-nums;
   }
 
+  /* 顶部导航压薄：窄屏把三栏导航收成一个大厅入口，避免换行吃画面高度 */
+  header.gm-top { flex-wrap: nowrap; gap: 6px; padding: 6px 8px; }
+  header.gm-top .gm-brand { font-size: 12px; }
+  header.gm-top .gm-ghost { padding: 4px 9px; font-size: 12px; }
+  @media (max-width: 520px) {
+    header.gm-top .gm-nav a:not(:first-child) { display: none; }
+  }
+
   .mm-stage {
     position: relative;
+    /* 占满 HUD 与操作键之间的全部剩余高度，画面越高压下来的门越多、看得越从容 */
     flex: 1 1 auto;
     min-height: 0;
     border-radius: 16px;
@@ -60,16 +71,20 @@
 
   .mm-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
+  /* 遮罩改为全屏浮层：画面拉长后按钮依旧落在视口内，也不会被吸底操作栏压住 */
   .mm-veil {
-    position: absolute;
+    position: fixed;
     inset: 0;
-    z-index: 3;
+    z-index: 30;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 10px;
     padding: 22px 20px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     text-align: center;
     background: rgba(4, 8, 16, .82);
     -webkit-backdrop-filter: blur(4px);
@@ -78,10 +93,57 @@
 
   .mm-veil[hidden] { display: none; }
 
+  /* 长文案遮罩：正文区独立滚动，主按钮紧随正文，画面拉长后依旧落在首屏可见区 */
+  .mm-veil--scroll { justify-content: center; gap: 0; padding: 0; }
+
+  .mm-veil__body {
+    flex: 0 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 18px 18px 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 用 auto 外边距实现「短内容居中、长内容可滚动到顶」 */
+  .mm-veil__body::before { content: ""; display: block; margin-top: auto; }
+  .mm-veil__body::after { content: ""; display: block; margin-bottom: auto; }
+
+  .mm-veil__body > * { flex: 0 0 auto; }
+
+  .mm-veil__foot {
+    flex: 0 0 auto;
+    position: sticky;
+    bottom: 0;
+    width: 100%;
+    padding: 8px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(4, 8, 16, 0), rgba(4, 8, 16, .78) 42%);
+  }
+
+  .mm-veil__foot .mm-btn { width: 100%; }
+
   .mm-veil h2 { margin: 0; font-size: clamp(19px, 5vw, 24px); color: #eaf6ff; }
   .mm-veil p { margin: 0; max-width: 470px; font-size: 13px; line-height: 1.75; color: #93aeca; }
   .mm-veil ul { margin: 0; padding-left: 18px; max-width: 470px; text-align: left; font-size: 13px; line-height: 1.85; color: #93aeca; }
   .mm-veil b { color: #6ee7ff; }
+
+  /* 矮屏（手机横屏等）：压缩遮罩内排版，给正文留出可视高度 */
+  @media (max-height: 480px) {
+    .mm-veil { padding: 12px 14px; gap: 8px; }
+    .mm-veil--scroll { padding: 0; }
+    .mm-veil h2 { font-size: 16px; }
+    .mm-veil p, .mm-veil ul { font-size: 12px; line-height: 1.55; }
+    .mm-veil ul { padding-left: 16px; }
+    .mm-veil__body { gap: 6px; padding: 10px 14px 4px; }
+    .mm-veil__foot { padding: 6px 14px calc(8px + env(safe-area-inset-bottom, 0px)); }
+    .mm-veil .mm-btn { padding: 9px 18px; font-size: 13px; }
+  }
 
   .mm-stat { display: flex; align-items: baseline; gap: 8px; font-size: 13px; color: #b8cde6; }
   .mm-stat b { font-size: 19px; color: #eaf6ff; font-variant-numeric: tabular-nums; }
@@ -107,7 +169,7 @@
 
   .mm-pad {
     flex: 1 1 0;
-    height: 50px;
+    height: 46px;
     border-radius: 13px;
     font-size: 16px;
     cursor: pointer;
@@ -203,6 +265,16 @@
     .mm-chip b { font-size: 15px; }
     .mm-pad { height: 44px; }
   }
+
+  /* 极矮屏（手机横屏）：压缩 HUD 与操作区，把高度尽量留给画布与说明 */
+  @media (max-height: 400px) {
+    .mm-shell { padding: 6px 8px 8px; gap: 6px; }
+    .mm-hud { gap: 6px; }
+    .mm-chip { flex-direction: row; align-items: baseline; gap: 6px; padding: 3px 8px; min-width: 60px; }
+    .mm-chip em { font-size: 10px; }
+    .mm-chip b { font-size: 14px; }
+    .mm-pad { height: 38px; }
+  }
 </style>
 </head>
 <body class="gm-body mm-body">
@@ -231,16 +303,21 @@
   <div class="mm-stage" id="mm-stage">
     <canvas id="mm-canvas"></canvas>
 
-    <div class="mm-veil" id="mm-start">
-      <h2>算术闯关</h2>
-      <p>小人站在底线，运算门从上方落下。<b>站到门的哪半边，人数就按那半边的算式变化</b>——<b>+12</b> 是加人，<b>7+5</b> 也是这样算，<b>×2</b> 按当前人数翻倍，<b>÷3</b> 直接除。</p>
-      <ul>
-        <li>撑过本关全部门数即闯关成功，下一关门更多、下得更快、算式更复杂；</li>
-        <li>过关后只按设定比例把队员带入下一关（默认 60%），别指望一路滚雪球；</li>
-        <li>人数归零本局结束，回到第一关；</li>
-        <li>操作：<b>← →</b> 或 <b>A D</b> 移动，也可直接拖动画面；手机按下方左右键。</li>
-      </ul>
-      <button class="mm-btn mm-btn--main" id="mm-start-btn" type="button">开始游戏</button>
+    <div class="mm-veil mm-veil--scroll" id="mm-start">
+      <div class="mm-veil__body">
+        <h2>算术闯关</h2>
+        <p><b>站到门的哪半边，人数就按那半边的算式变化</b>：<b>7+5</b> 加 12、<b>9-14</b> 减 5、<b>×2</b> 翻倍、<b>÷3</b> 直接除。</p>
+        <ul>
+          <li>撑过本关全部门数即过关，下一关门更多、更快、更复杂；</li>
+          <li>难度逐关升：1 关加减与加减混合、2 关乘除、3 关加减乘、4 关四则、第 5 关起带括号（最多 5 项）；</li>
+          <li><b>门色只区分两侧，不代表好坏</b>，绿门也可能是负数；</li>
+          <li>过关按比例带入队员（默认 60%）；人数归零本局结束。</li>
+          <li>操作：<b>← →</b> / <b>A D</b> 移动，也可拖动画面，手机按下方左右键。</li>
+        </ul>
+      </div>
+      <div class="mm-veil__foot">
+        <button class="mm-btn mm-btn--main" id="mm-start-btn" type="button">开始游戏</button>
+      </div>
     </div>
 
     <div class="mm-veil" id="mm-clear" hidden>
@@ -283,6 +360,6 @@
   </div>
 </div>
 
-<script src="/static/game-mathrun.js?v=20261117b"></script>
+<script src="/static/game-mathrun.js?v=20261117d"></script>
 </body>
 </html>

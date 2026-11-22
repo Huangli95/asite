@@ -37,11 +37,17 @@
       accent: "#22b8d8",
       glow: "rgba(34,184,216,.26)",
       desc: "纯前端小游戏合集，手机触屏与桌面键鼠双适配，打开即玩"
+    },
+    audio: {
+      tag: "MUSIC",
+      accent: "#c07cff",
+      glow: "rgba(192,124,255,.26)",
+      desc: "挑挑心情和乐器，后台异步合成一段随机音乐，在线试听、随时下载"
     }
   };
 
   /* 独立页面的板块：卡片点击直接跳转，不走首页 hash 路由 */
-  var BOARD_PAGE = { novel: "/novel", games: "/games" };
+  var BOARD_PAGE = { novel: "/novel", games: "/games", audio: "/audio" };
 
   var state = {
     boards: [],
@@ -56,6 +62,45 @@
     page: 1,
     pageSize: 10
   };
+
+  /* 桌面端每页条数由用户选择，移动端固定 5 条（一屏一叠） */
+  var PAGE_SIZE_DESKTOP = 10;
+  var PAGE_SIZE_MOBILE = 5;
+  var deskPageSize = PAGE_SIZE_DESKTOP;
+
+  /* 移动端新闻展示模式：deck=卡片堆叠（默认）；list=竖列卡片流。用户选择写本地 */
+  var NEWS_MODE_KEY = "asite.news.mode";
+  var NEWS_MODE_DECK = "deck";
+  var NEWS_MODE_LIST = "list";
+
+  function readNewsMode() {
+    try {
+      return window.localStorage.getItem(NEWS_MODE_KEY) === NEWS_MODE_LIST ? NEWS_MODE_LIST : NEWS_MODE_DECK;
+    } catch (e) {
+      return NEWS_MODE_DECK;
+    }
+  }
+
+  function saveNewsMode(m) {
+    try {
+      window.localStorage.setItem(NEWS_MODE_KEY, m);
+    } catch (e) {
+      /* 隐私模式下 localStorage 不可写，忽略即可，选择仍在本次会话内生效 */
+    }
+  }
+
+  var newsMode = readNewsMode();
+
+  var MQ_MOBILE = window.matchMedia ? window.matchMedia("(max-width: 760px)") : null;
+  var MQ_REDUCE = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+
+  function isMobile() {
+    return !!(MQ_MOBILE && MQ_MOBILE.matches);
+  }
+
+  function reduceMotion() {
+    return !!(MQ_REDUCE && MQ_REDUCE.matches);
+  }
 
   var el = {
     view: document.getElementById("view"),
@@ -260,8 +305,50 @@
 
   /* ---------------- 热点新闻 ---------------- */
 
+  /* 移动端展示模式切换：列表 / 堆叠（默认堆叠） */
+  function newsModeSwitchHtml() {
+    var opts = [
+      { k: NEWS_MODE_LIST, t: "列表" },
+      { k: NEWS_MODE_DECK, t: "堆叠" }
+    ];
+    return '<div class="view-switch">' +
+      '<span class="vs-label">展示</span>' +
+      '<div class="vs-seg" role="group" aria-label="新闻展示方式">' +
+      opts.map(function (o) {
+        var on = o.k === newsMode;
+        return '<button type="button" class="vs-btn' + (on ? " is-on" : "") + '"' +
+          ' data-news-mode="' + o.k + '" aria-pressed="' + (on ? "true" : "false") + '">' + o.t + "</button>";
+      }).join("") +
+      "</div>" +
+    "</div>";
+  }
+
+  function syncNewsModeSwitch() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-news-mode]"), function (b) {
+      var on = b.getAttribute("data-news-mode") === newsMode;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  function bindNewsModeSwitch() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-news-mode]"), function (b) {
+      b.addEventListener("click", function () {
+        var m = b.getAttribute("data-news-mode") === NEWS_MODE_LIST ? NEWS_MODE_LIST : NEWS_MODE_DECK;
+        if (m === newsMode) return;
+        newsMode = m;
+        saveNewsMode(m);
+        syncNewsModeSwitch();
+        deckReset();
+        loadNews();
+      });
+    });
+  }
+
   function renderNews() {
     var ov = state.overview;
+    var mobile = isMobile();
+    state.pageSize = mobile ? PAGE_SIZE_MOBILE : deskPageSize;
     var badges = ov
       ? [{ k: "累计", v: ov.total, u: "条" }, { k: "覆盖", v: ov.date_count, u: "天" }, { k: "最新", v: ov.latest_date }]
       : [];
@@ -279,13 +366,16 @@
             '<input type="search" id="f-q" placeholder="搜索标题、摘要、来源、分类" value="' + esc(state.q) + '">' +
           "</div>" +
           '<input type="date" class="date-input" id="f-date" value="' + esc(state.date) + '" title="指定日期">' +
-          '<span class="select-wrap"><select id="f-size">' +
-            [10, 20, 50].map(function (n) {
-              return '<option value="' + n + '"' + (n === state.pageSize ? " selected" : "") + ">每页 " + n + " 条</option>";
-            }).join("") +
-          "</select></span>" +
+          (mobile
+            ? ""
+            : '<span class="select-wrap"><select id="f-size">' +
+              [10, 20, 50].map(function (n) {
+                return '<option value="' + n + '"' + (n === state.pageSize ? " selected" : "") + ">每页 " + n + " 条</option>";
+              }).join("") +
+              "</select></span>") +
           '<button type="button" class="btn-primary" id="btn-search">查询</button>' +
         "</div>" +
+        (mobile ? newsModeSwitchHtml() : "") +
       "</div>" +
       '<div id="news-body"><div class="loading">读取中</div></div>';
 
@@ -311,13 +401,19 @@
       state.page = 1;
       loadNews();
     });
-    document.getElementById("f-size").addEventListener("change", function () {
-      state.pageSize = parseInt(this.value, 10) || 10;
-      state.page = 1;
-      loadNews();
-    });
+    /* 移动端不渲染条数选择（固定 5 条），这里做存在性判断 */
+    var sizeSel = document.getElementById("f-size");
+    if (sizeSel) {
+      sizeSel.addEventListener("change", function () {
+        deskPageSize = parseInt(this.value, 10) || PAGE_SIZE_DESKTOP;
+        state.pageSize = deskPageSize;
+        state.page = 1;
+        loadNews();
+      });
+    }
 
     renderDateStrip([]);
+    if (mobile) bindNewsModeSwitch();
     loadNews();
   }
 
@@ -380,6 +476,7 @@
     var box = document.getElementById("news-body");
     if (!box) return;
     box.innerHTML = '<div class="loading">读取中</div>';
+    deckReset();
 
     var qs = "?page=" + state.page + "&page_size=" + state.pageSize;
     if (state.date) qs += "&date=" + encodeURIComponent(state.date);
@@ -402,26 +499,413 @@
         '<span class="sep">/</span>第 ' + d.page + " / " + d.pages + " 页</div>";
 
       var items = d.items.slice();
-      var lead = (d.page === 1 && !state.q) ? items.shift() : null;
+      var mobile = isMobile();
+      /* 移动端不使用大头条，整页条目统一进卡片堆叠；桌面端保持原渲染路径 */
+      var lead = (!mobile && d.page === 1 && !state.q) ? items.shift() : null;
 
       /* state.news 按渲染顺序保存条目，供展开/弹窗按索引取回完整字段 */
       state.news = [];
       var body = "";
-      if (lead) {
-        state.news.push(lead);
-        body += leadHtml(lead, 0);
-      }
-      if (items.length) {
-        body += '<div class="news-grid">' + items.map(function (it) {
+
+      if (mobile && newsMode === NEWS_MODE_LIST) {
+        /* 列表模式：原有竖列卡片流，卡片高度自适应，展开后由页面滚动 */
+        body = '<div class="news-list" data-news-list>' + items.map(function (it, i) {
           state.news.push(it);
-          return cardNewsHtml(it, state.news.length - 1);
+          return cardNewsHtml(it, i);
         }).join("") + "</div>";
+      } else if (mobile) {
+        body = '<div class="news-deck" data-news-deck>' +
+          '<div class="deck-hint">' +
+            '<span class="deck-pos" data-deck-hint></span>' +
+            '<span class="deck-tip">左右滑动翻看</span>' +
+          "</div>" +
+          '<div class="deck-stage">' +
+            items.map(function (it, i) {
+              state.news.push(it);
+              return cardNewsHtml(it, i);
+            }).join("") +
+          "</div>" +
+          '<div class="deck-toast" data-deck-toast></div>' +
+        "</div>";
+      } else {
+        if (lead) {
+          state.news.push(lead);
+          body += leadHtml(lead, 0);
+        }
+        if (items.length) {
+          body += '<div class="news-grid">' + items.map(function (it) {
+            state.news.push(it);
+            return cardNewsHtml(it, state.news.length - 1);
+          }).join("") + "</div>";
+        }
       }
 
       box.innerHTML = note + '<div class="news-stack">' + body + "</div>" + pagerHtml(d);
       bindPager(box, d);
+      if (mobile && newsMode === NEWS_MODE_DECK) {
+        deck.page = d.page;
+        deck.pages = d.pages;
+        initDeck(box);
+      } else {
+        deckReset();
+      }
       refreshNewsClamp(box);
     }).catch(function (e) { showError(box, e); });
+  }
+
+  /* ---------------- 移动端：卡片堆叠 + 左右滑动翻页 ---------------- */
+
+  /* 同时叠放可见的层数（顶层 + 下面露出边角的 3 张） */
+  var DECK_MAX_LAYERS = 4;
+  var DECK_FAN_STEP_X = 4.5;    /* 每层左右错位，让下层卡角从两侧透出 */
+  var DECK_FAN_STEP_Y = 13;     /* 每层向下露出的高度 */
+  var DECK_FAN_STEP_ROT = 0.9;  /* 每层绕底边中心的轻微旋转（度） */
+  var DECK_FAN_SCALE = 0.016;   /* 每层缩小比例，制造纵深 */
+  var DECK_LAYER_FADE = 0.06;   /* 每层降低的不透明度 */
+  var DECK_SWIPE_RATIO = 0.22;  /* 松手判定的位移阈值（占卡片宽度） */
+  var DECK_SWIPE_SPEED = 0.45;  /* 甩动速度阈值（px/ms） */
+  var DECK_EXIT_MS = 300;
+
+  var deck = {
+    el: null,
+    cards: [],
+    cur: 0,
+    page: 1,
+    pages: 1,
+    drag: null,
+    animating: false,
+    suppressClick: false,
+    clickTimer: null,
+    toastTimer: null
+  };
+
+  function deckReset() {
+    window.clearTimeout(deck.clickTimer);
+    window.clearTimeout(deck.toastTimer);
+    deck.el = null;
+    deck.cards = [];
+    deck.cur = 0;
+    deck.drag = null;
+    deck.animating = false;
+    deck.suppressClick = false;
+  }
+
+  function initDeck(box) {
+    deck.el = box.querySelector("[data-news-deck]");
+    deck.cards = deck.el
+      ? Array.prototype.slice.call(deck.el.querySelectorAll("[data-news-card]"))
+      : [];
+    deck.cur = 0;
+    deck.drag = null;
+    deck.animating = false;
+    if (!deck.el || !deck.cards.length) return;
+    deck.el.addEventListener("pointerdown", deckPointerDown);
+    deck.el.addEventListener("click", deckClickGuard, true);
+    layoutDeck();
+  }
+
+  function deckCardWidth() {
+    var card = deck.cards[deck.cur];
+    var r = card && card.getBoundingClientRect ? card.getBoundingClientRect() : null;
+    return r && r.width ? r.width : 320;
+  }
+
+  /* 「手里握着一把扑克牌」的分层几何：以卡片底边中心为轴，
+     逐层向下露出、左右交替微错位并轻转，形成扇形牌叠 */
+  function deckFan(layer) {
+    var sign = layer % 2 === 1 ? 1 : -1;
+    return {
+      x: (sign * layer * DECK_FAN_STEP_X).toFixed(1) + "px",
+      y: (layer * DECK_FAN_STEP_Y).toFixed(1) + "px",
+      r: (sign * layer * DECK_FAN_STEP_ROT).toFixed(2) + "deg",
+      s: (1 - layer * DECK_FAN_SCALE).toFixed(3)
+    };
+  }
+
+  /* 卡片离开堆顶时收起展开态，避免下一张继承上一张的展开/滚动位置 */
+  function collapseDeckCard(card) {
+    if (!card || !card.classList.contains("is-open")) return;
+    var p = card.querySelector("[data-news-clamp]");
+    var btn = card.querySelector('[data-news-act="expand"]');
+    if (p) p.classList.remove("is-open");
+    card.classList.remove("is-open", "is-scrollable");
+    card.scrollTop = 0;
+    if (btn) {
+      btn.setAttribute("aria-expanded", "false");
+      btn.innerHTML = MORE + "<span>展开全文</span>";
+    }
+  }
+
+  /* 按 cur 重排层级：顶层可交互，下层露出底部边角 */
+  function layoutDeck() {
+    if (!deck.el) return;
+    deck.cards.forEach(function (card, i) {
+      var layer = i - deck.cur;
+      if (layer < 0 || layer > DECK_MAX_LAYERS - 1) {
+        card.hidden = true;
+        card.classList.remove("is-top", "is-gone");
+        card.style.removeProperty("--dx");
+        card.style.removeProperty("--rot");
+        return;
+      }
+      card.hidden = false;
+      if (layer > 0) collapseDeckCard(card);
+      card.classList.toggle("is-top", layer === 0);
+      var fan = deckFan(layer);
+      card.style.setProperty("--fx", fan.x);
+      card.style.setProperty("--fy", fan.y);
+      card.style.setProperty("--fr", fan.r);
+      card.style.setProperty("--sc", fan.s);
+      card.style.removeProperty("--dx");
+      card.style.removeProperty("--rot");
+      card.style.zIndex = String(100 - layer);
+      card.style.pointerEvents = layer === 0 ? "auto" : "none";
+      card.style.opacity = layer === 0 ? "" : String(1 - layer * DECK_LAYER_FADE);
+    });
+    updateDeckHint();
+  }
+
+  function updateDeckHint() {
+    var hint = deck.el && deck.el.querySelector("[data-deck-hint]");
+    if (!hint) return;
+    hint.textContent = deck.cards.length
+      ? "第 " + (deck.cur + 1) + " / " + deck.cards.length + " 张"
+      : "";
+  }
+
+  function deckToast(msg) {
+    var t = deck.el && deck.el.querySelector("[data-deck-toast]");
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add("is-show");
+    window.clearTimeout(deck.toastTimer);
+    deck.toastTimer = window.setTimeout(function () { t.classList.remove("is-show"); }, 1600);
+  }
+
+  function resetDeckTop() {
+    var card = deck.cards[deck.cur];
+    if (!card) return;
+    card.style.setProperty("--dx", "0px");
+    card.style.setProperty("--rot", "0deg");
+  }
+
+  /* 左滑：顶层卡片翻转收起，下一张补位。dir 为 "prev" 时向右收起 */
+  function retireDeckCard() {
+    var card = deck.cards[deck.cur];
+    if (!card) return;
+    if (reduceMotion()) {
+      deck.cur += 1;
+      layoutDeck();
+      return;
+    }
+    var w = deckCardWidth();
+    deck.animating = true;
+    card.classList.remove("is-dragging");
+    card.style.setProperty("--dx", (-w * 1.15).toFixed(1) + "px");
+    card.style.setProperty("--rot", "-18deg");
+    card.classList.add("is-gone");
+    window.setTimeout(function () {
+      deck.animating = false;
+      deck.cur += 1;
+      layoutDeck();
+    }, DECK_EXIT_MS);
+  }
+
+  /* 右滑：把上一张卡片从左侧复位回堆顶 */
+  function restoreDeckCard() {
+    if (!reduceMotion()) {
+      var back = deck.cards[deck.cur - 1];
+      if (back) {
+        back.hidden = false;
+        back.classList.remove("is-gone");
+        back.style.setProperty("--fx", "0px");
+        back.style.setProperty("--fy", "0px");
+        back.style.setProperty("--fr", "0deg");
+        back.style.setProperty("--sc", "1");
+        back.style.setProperty("--dx", (-deckCardWidth() * 0.85).toFixed(1) + "px");
+        back.style.setProperty("--rot", "-14deg");
+        back.style.zIndex = "120";
+        void back.offsetWidth;
+      }
+    }
+    deck.cur -= 1;
+    layoutDeck();
+  }
+
+  function deckNext() {
+    if (!deck.el || deck.animating) return;
+    if (deck.cur < deck.cards.length - 1) {
+      retireDeckCard();
+      return;
+    }
+    if (deck.page < deck.pages) {
+      deckToNextPage();
+      return;
+    }
+    deckToast("已经是最后一页了");
+    resetDeckTop();
+  }
+
+  function deckPrev() {
+    if (!deck.el || deck.animating) return;
+    if (deck.cur > 0) {
+      restoreDeckCard();
+      return;
+    }
+    deckToast("已经是第一张了");
+    resetDeckTop();
+  }
+
+  /* 滑到最后一张后继续左滑：下一页接续进堆叠 */
+  function deckToNextPage() {
+    var card = deck.cards[deck.cur];
+    deck.animating = true;
+    if (card && !reduceMotion()) {
+      card.style.setProperty("--dx", (-deckCardWidth() * 1.15).toFixed(1) + "px");
+      card.style.setProperty("--rot", "-18deg");
+      card.classList.add("is-gone");
+    }
+    var wait = reduceMotion() ? 0 : DECK_EXIT_MS;
+    window.setTimeout(function () {
+      deck.animating = false;
+      state.page = (deck.page || state.page) + 1;
+      loadNews();
+    }, wait);
+  }
+
+  function deckPointerDown(e) {
+    if (!deck.el || deck.animating) return;
+    if (!e.isPrimary) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    var card = e.target && e.target.closest ? e.target.closest("[data-news-card]") : null;
+    if (!card || card !== deck.cards[deck.cur]) return;
+    /* 上一次拖动遗留的点击拦截已过期，新的一次按下重新开始 */
+    deck.suppressClick = false;
+    window.clearTimeout(deck.clickTimer);
+    deck.drag = {
+      id: e.pointerId,
+      card: card,
+      x0: e.clientX,
+      y0: e.clientY,
+      dx: 0,
+      dy: 0,
+      t0: Date.now(),
+      active: false
+    };
+    card.classList.add("is-holding");
+    document.addEventListener("pointermove", deckPointerMove, { passive: false });
+    document.addEventListener("pointerup", deckPointerUp);
+    document.addEventListener("pointercancel", deckPointerCancel);
+  }
+
+  function deckPointerMove(e) {
+    var d = deck.drag;
+    if (!d || e.pointerId !== d.id) return;
+    var dx = e.clientX - d.x0;
+    var dy = e.clientY - d.y0;
+    d.dx = dx;
+    d.dy = dy;
+
+    if (!d.active) {
+      /* 纵向优先时直接放弃拖动，把滚动交还给页面 */
+      if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) {
+        if (Math.abs(dy) > 16 && Math.abs(dy) > Math.abs(dx)) stopDeckDrag();
+        return;
+      }
+      d.active = true;
+      d.card.classList.remove("is-holding");
+      d.card.classList.add("is-dragging");
+    }
+
+    if (e.cancelable) e.preventDefault();
+    var rot = Math.max(-14, Math.min(14, dx / 26));
+    d.card.style.setProperty("--dx", dx.toFixed(1) + "px");
+    d.card.style.setProperty("--rot", rot.toFixed(2) + "deg");
+  }
+
+  function stopDeckDrag() {
+    var d = deck.drag;
+    deck.drag = null;
+    document.removeEventListener("pointermove", deckPointerMove);
+    document.removeEventListener("pointerup", deckPointerUp);
+    document.removeEventListener("pointercancel", deckPointerCancel);
+    if (!d) return null;
+    d.card.classList.remove("is-holding", "is-dragging");
+    return d;
+  }
+
+  function deckPointerUp(e) {
+    var d = deck.drag;
+    if (!d || e.pointerId !== d.id) return;
+    var active = d.active;
+    var dx = d.dx;
+    var speed = Math.abs(dx) / Math.max(Date.now() - d.t0, 1);
+    var card = d.card;
+    stopDeckDrag();
+
+    if (!active) {
+      /* 位移不足阈值：按点击处理，原生交互继续生效 */
+      card.style.setProperty("--dx", "0px");
+      card.style.setProperty("--rot", "0deg");
+      return;
+    }
+    suppressDeckClick();
+
+    var w = deckCardWidth();
+    if (dx <= -w * DECK_SWIPE_RATIO || (dx < 0 && speed >= DECK_SWIPE_SPEED)) {
+      deckNext();
+    } else if (dx >= w * DECK_SWIPE_RATIO || (dx > 0 && speed >= DECK_SWIPE_SPEED)) {
+      deckPrev();
+    } else {
+      card.style.setProperty("--dx", "0px");
+      card.style.setProperty("--rot", "0deg");
+    }
+  }
+
+  function deckPointerCancel(e) {
+    var d = deck.drag;
+    if (!d || e.pointerId !== d.id) return;
+    var card = d.card;
+    stopDeckDrag();
+    card.style.setProperty("--dx", "0px");
+    card.style.setProperty("--rot", "0deg");
+  }
+
+  function suppressDeckClick() {
+    /* 只拦掉本次拖动紧随其后的那一次 click，随后自动失效 */
+    deck.suppressClick = true;
+    window.clearTimeout(deck.clickTimer);
+    deck.clickTimer = window.setTimeout(function () { deck.suppressClick = false; }, 150);
+  }
+
+  /* 真正拖动过之后截断随后的 click，避免误触卡片内链接与按钮 */
+  function deckClickGuard(e) {
+    if (!deck.suppressClick) return;
+    deck.suppressClick = false;
+    window.clearTimeout(deck.clickTimer);
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+  }
+
+  /* 断点切换导致每页条数变化时回到第 1 页重载（节流，且仅当新闻板块在前台） */
+  var deckBreakpointTimer = null;
+
+  function onNewsBreakpointChange() {
+    if (!document.getElementById("news-body")) return;
+    var size = isMobile() ? PAGE_SIZE_MOBILE : deskPageSize;
+    if (size === state.pageSize) return;
+    state.pageSize = size;
+    state.page = 1;
+    window.clearTimeout(deckBreakpointTimer);
+    deckBreakpointTimer = window.setTimeout(function () {
+      if (!document.getElementById("news-body")) return;
+      renderNews();
+    }, 180);
+  }
+
+  if (MQ_MOBILE) {
+    if (MQ_MOBILE.addEventListener) MQ_MOBILE.addEventListener("change", onNewsBreakpointChange);
+    else if (MQ_MOBILE.addListener) MQ_MOBILE.addListener(onNewsBreakpointChange);
   }
 
   /* ---------------- 新闻摘要：展开/收起 + 完整内容弹窗 ---------------- */
@@ -461,6 +945,20 @@
     });
   }
 
+  /* 展开态卡片是否需要卡内滚动：内容真正溢出才让卡片成为滚动容器，
+     否则保持 overflow: hidden，纵向手势交还给页面，避免"展开后整片滑不动" */
+  function syncDeckCardScroll(card) {
+    if (!card) return false;
+    if (!card.classList.contains("is-open")) {
+      card.classList.remove("is-scrollable");
+      return false;
+    }
+    /* 读 scrollHeight 会强制同步布局，此时展开后的尺寸已生效 */
+    var need = card.scrollHeight - card.clientHeight > 2;
+    card.classList.toggle("is-scrollable", need);
+    return need;
+  }
+
   function toggleNewsExpand(card) {
     var p = card.querySelector("[data-news-clamp]");
     var btn = card.querySelector('[data-news-act="expand"]');
@@ -470,6 +968,14 @@
     card.classList.toggle("is-open", open);
     btn.setAttribute("aria-expanded", open ? "true" : "false");
     btn.innerHTML = (open ? LESS : MORE) + "<span>" + (open ? "收起" : "展开全文") + "</span>";
+    if (open) {
+      syncDeckCardScroll(card);
+      /* 字体/图片加载可能改变高度，下一帧再校准一次 */
+      window.requestAnimationFrame(function () { syncDeckCardScroll(card); });
+    } else {
+      card.classList.remove("is-scrollable");
+      card.scrollTop = 0;
+    }
   }
 
   var newsModal = null;
@@ -588,7 +1094,12 @@
   var clampTimer = null;
   window.addEventListener("resize", function () {
     window.clearTimeout(clampTimer);
-    clampTimer = window.setTimeout(function () { refreshNewsClamp(document); }, 160);
+    clampTimer = window.setTimeout(function () {
+      refreshNewsClamp(document);
+      /* 视口变化后展开卡的溢出情况可能改变，重新判定是否需要卡内滚动 */
+      var opened = document.querySelectorAll(".news-deck .news-card.is-open");
+      Array.prototype.forEach.call(opened, syncDeckCardScroll);
+    }, 160);
   });
 
   function leadHtml(it, idx) {

@@ -125,7 +125,7 @@
     root.setAttribute(ATTR, nextTheme);
     root.setAttribute('data-theme-mode', nextMode);
     root.setAttribute('data-theme-period', periodAt().id);
-    try { root.style.colorScheme = (['dawn', 'dusk', 'night'].indexOf(nextTheme) >= 0) ? 'dark' : 'light'; } catch (e) {}
+    try { root.style.colorScheme = (['dawn', 'dusk', 'night'].indexOf(nextTheme) >= 0) ? 'dark' : 'only light'; } catch (e) {}
 
     syncMetaColor(nextTheme);
     syncUI();

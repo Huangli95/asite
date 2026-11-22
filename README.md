@@ -83,7 +83,7 @@ marvis-site/
 
 ### 4. 板块机制
 
-`server.py` 的 `BOARDS` 是板块注册表（`key` / `name` / `desc` / `status`），`/api/boards` 原样下发，前端首页卡片与导航由它生成。当前：`news`、`market`、`steam`、`overview`。
+`server.py` 的 `BOARDS` 是板块注册表（`key` / `name` / `desc` / `status`），`/api/boards` 原样下发，前端首页卡片与导航由它生成。当前：`news`、`overview`、`novel`、`games`、`audio`；后三者是独立页面板块（`BOARD_PAGE` 直接整页跳转，不走 hash 路由）。
 
 前端是 hash 路由（`app.js` 的 `route()`）：
 
@@ -95,6 +95,29 @@ marvis-site/
 | `#/steam` | Steam 列表 |
 | `#/steam/<appid>` | 单个游戏详情（价格曲线） |
 | `#/overview` | 数据概览 |
+
+#### 音频素材板块（audio）
+
+独立页面板块，前端在 `static/audio.html` + `audio.js` + `audio.css`，后端逻辑全在 `audio.py`（`server.py` 只做注册与转交）。
+
+- **页面与接口**：`GET /audio` 页面；`GET /api/audio/options`（通俗选项 + 运行配置）、`POST /api/audio/jobs`（提交，202）、`GET /api/audio/jobs?limit=`（列表 + 统计）、`GET /api/audio/jobs/<id>`（单任务进度）、`GET /api/audio/file/<id>.wav[?download=1]`（试听 / 下载，支持 `Range` 206）。游客可用，不要求登录。
+- **异步执行**：提交后进线程池 + `_Gate` 信号量做并发闸门，超出并发进排队；超过 `max_queue` 直接 429 `queue_full`。单任务用 `subprocess.run` 跑 `assets/gen_random_melody.py`，超时 `max(90, 时长*4+60)` 秒，超时/非零退出码都会把任务标成 `failed` 并把脚本尾部输出回传给前端。
+- **列表分页**：已生成音频在前端按每页 6 条分页展示（上一页 / 下一页 / 页码 + 总条数），每条是独立卡片，含参数标签、时长大小、试听播放器、下载入口与剩余有效期；分页纯前端完成，接口仍一次返回 `limit` 条。
+- **输出隔离**：每个任务一个独立目录 `temp/audio/jobs/<job_id>/`，同时传 `-o <任务目录> --name <job_id> --seed <n>`，天然避免同名覆盖；索引落在 `temp/audio/jobs.json`。
+- **配置项**（全部走环境变量，读取位置 `audio.py` 顶部 `_env_int/_env_float` 与 `CONFIG`）：
+
+| 环境变量 | 默认 | 范围 | 含义 |
+| --- | --- | --- | --- |
+| `MARVIS_AUDIO_CONCURRENCY` | 5 | 1–16 | 同时生成的任务数上限 |
+| `MARVIS_AUDIO_MAX_FILES` | 100 | 1–2000 | 本地最多保留的音频段数 |
+| `MARVIS_AUDIO_TTL_HOURS` | 24 | 0.1–720 | 单个音频的有效期（小时） |
+| `MARVIS_AUDIO_MAX_QUEUE` | 20 | 1–200 | 排队上限，满了直接拒绝 |
+| `MARVIS_AUDIO_MAX_SECONDS` | 180 | 5–600 | 单段最长时长，会同时裁剪前端可选档位 |
+| `MARVIS_AUDIO_DIR` | `temp/audio` | — | 音频与索引的存放根目录 |
+| `MARVIS_AUDIO_SCRIPT` | `assets/gen_random_melody.py` | — | 调用的合成脚本 |
+
+- **自动清理**：`audio.py` 起一个 `audio-janitor` 守护线程，每 30 秒 `sweep()` 一次：① 删过期（`expires_at` 已到）的音频文件与索引；② 超过 `max_files` 时按 `created_at` 最旧优先删；③ 卡在 running 超过 30 分钟的任务标失败。清理只动 `temp/audio` 下的东西，不碰业务数据。
+- **改这个板块注意**：`assets/` 下 `gen_random_melody.py` 依赖同目录的 `gen_scale_wav.py`，两个文件必须在一起；脚本是 CPU 密集的纯 Python 采样计算，并发开高会互相拖慢（实测并发 5 时 10 秒音频要 30 秒左右，串行约 4–7 秒），`concurrency` 别盲目调大。
 
 ### 5. 论坛模块要点
 

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>音频素材</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/games.css?v=20261118a">
+<link rel="stylesheet" href="/static/audio.css?v=20261119c">
+<script src="/static/theme.js"></script>
+</head>
+<body class="gm-body au-body">
+
+<header class="gm-top">
+  <a class="gm-brand" href="/audio"><i>音</i>音频素材</a>
+  <nav class="gm-nav">
+    <a href="/audio" class="is-on">音频素材</a>
+    <a href="/games">小游戏</a>
+    <a href="/novel">小说板块</a>
+    <a href="/forum">社区论坛</a>
+    <a href="/">主站首页</a>
+  </nav>
+  <div class="gm-top-right">
+    <span class="gm-meta" id="au-headmeta">后台生成 · 无需登录</span>
+  </div>
+</header>
+
+<main class="gm-wrap au-wrap">
+  <h1 class="gm-h1">随手点几下，来一段没听过的音乐</h1>
+  <p class="gm-sub">选好「多长、什么感觉、用什么乐器、快不快、热闹还是干净」，点一下提交就去后台慢慢做，做好了这里直接能听、能下载。</p>
+
+  <div class="au-layout">
+    <section class="au-card au-formcard">
+      <div class="au-cardhead">
+        <h2>① 挑一挑</h2>
+        <button type="button" class="au-reset" id="au-reset">恢复默认</button>
+      </div>
+      <div class="au-fields" id="au-fields">
+        <div class="au-loading">选项加载中…</div>
+      </div>
+
+      <div class="au-toggles" id="au-toggles"></div>
+
+      <div class="au-submitbar">
+        <button type="button" class="au-go" id="au-submit">生成这段音乐</button>
+        <button type="button" class="gm-ghost au-lucky" id="au-lucky" title="五组参数各随便挑一个，挑完照样能改">随便来一段</button>
+        <span class="au-cap" id="au-cap"></span>
+      </div>
+    </section>
+
+    <section class="au-card au-jobcard">
+      <div class="au-cardhead">
+        <h2>② 做好了吗</h2>
+        <span class="au-badge" id="au-jobstate">等待提交</span>
+      </div>
+      <div class="au-jobbox" id="au-jobbox">
+        <p class="au-empty">上面选好以后点「生成这段音乐」，这里会显示进度。</p>
+      </div>
+      <div class="au-usage" id="au-usage"></div>
+    </section>
+  </div>
+
+  <section class="au-card au-listcard">
+    <div class="au-cardhead">
+      <h2>已生成的音频素材</h2>
+      <div class="au-listops">
+        <span class="au-count" id="au-count">—</span>
+        <button type="button" class="gm-ghost au-refresh" id="au-refresh">刷新</button>
+      </div>
+    </div>
+    <p class="au-note" id="au-lifenote"></p>
+    <div class="au-list" id="au-list">
+      <div class="au-empty">加载中…</div>
+    </div>
+    <nav class="au-pager" id="au-pager" hidden></nav>
+  </section>
+
+  <p class="gm-foot">音频素材到期会自动从服务器删掉，请及时下载想留的那几段</p>
+</main>
+
+<script src="/static/audio.js?v=20261120a"></script>
+</body>
+</html>

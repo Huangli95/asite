@@ -64,12 +64,12 @@
       gatesBase: 8,        /* 首关门数 */
       gatesPerLevel: 2,    /* 每过一关增加的门数 */
       gatesMax: 20,        /* 单关门数上限 */
-      speedBase: 160,      /* 首关下落速度（像素/秒） */
-      speedPerLevel: 12,   /* 每关加速度 */
-      speedMax: 430,       /* 下落速度上限 */
-      gapK: 0.55,          /* 门间距 = 屏高 * gapK */
+      speedBase: 40,       /* 首关下落速度（像素/秒），本轮再减半 */
+      speedPerLevel: 3,    /* 每关加速度（同步减半） */
+      speedMax: 108,       /* 下落速度上限（同步减半） */
+      gapK: 0.8,           /* 门间距 = 屏高 * gapK（默认加宽） */
       gapMin: 170,         /* 门间距下限（像素） */
-      tierPerLevel: 2,     /* 每几关提升一档运算复杂度 */
+      tierPerLevel: 1,     /* 每几关提升一档运算复杂度（默认每关一档） */
       maxTier: 5,          /* 运算复杂度档位上限 */
       carryRatio: 60,      /* 过关后带入下一关的人数比例（%），压制人数滚雪球 */
       clearDelay: 0.9      /* 最后一扇门结算后到过关弹窗的间隔（秒） */
@@ -81,8 +81,8 @@
       scoreLevel: 60       /* 过关基础分（再乘关卡数） */
     },
     look: {
-      gateRatio: 0.075,    /* 门高 = 屏高 * gateRatio */
-      gateMin: 34, gateMax: 62,
+      gateRatio: 0.115,    /* 门高 = 屏高 * gateRatio（比初版明显加高） */
+      gateMin: 48, gateMax: 92,
       fontSize: 0.44,      /* 门内算式字号 = 门高 * fontSize */
       gridSpeed: 0.55      /* 背景网格滚动速度系数 */
     }
@@ -103,9 +103,9 @@
         { p: "level.gatesBase", l: "首关门数", min: 2, max: 20, step: 1 },
         { p: "level.gatesPerLevel", l: "每关增加门数", min: 0, max: 5, step: 1 },
         { p: "level.gatesMax", l: "门数上限", min: 3, max: 40, step: 1 },
-        { p: "level.speedBase", l: "首关下落速度", min: 40, max: 400, step: 5 },
+        { p: "level.speedBase", l: "首关下落速度", min: 20, max: 300, step: 5 },
         { p: "level.speedPerLevel", l: "每关加速度", min: 0, max: 60, step: 1 },
-        { p: "level.speedMax", l: "速度上限", min: 80, max: 800, step: 10 },
+        { p: "level.speedMax", l: "速度上限", min: 40, max: 500, step: 5 },
         { p: "level.gapK", l: "门间距（屏高比例）", min: 0.3, max: 1.2, step: 0.05 },
         { p: "level.carryRatio", l: "过关带入人数比例（%）", min: 20, max: 100, step: 5 }
       ]
@@ -118,6 +118,14 @@
         { p: "rules.showResult", l: "门上显示算式结果", options: [{ v: "off", t: "不显示" }, { v: "on", t: "显示" }] },
         { p: "rules.scoreSurvivor", l: "过关每人得分", min: 0, max: 100, step: 1 },
         { p: "rules.scoreLevel", l: "过关基础分", min: 0, max: 500, step: 10 }
+      ]
+    },
+    {
+      g: "外观", items: [
+        { p: "look.gateRatio", l: "门高（屏高比例）", min: 0.04, max: 0.3, step: 0.005 },
+        { p: "look.gateMin", l: "门高下限（像素）", min: 20, max: 160, step: 2 },
+        { p: "look.gateMax", l: "门高上限（像素）", min: 40, max: 240, step: 2 },
+        { p: "look.fontSize", l: "字号（占门高比例）", min: 0.2, max: 0.7, step: 0.02 }
       ]
     }
   ];
@@ -238,71 +246,122 @@
     return r;
   }
 
-  /* 按档位生成一个算式：gain = 偏增益（好选项），risk = 偏差（风险选项） */
+  /* 按档位生成一个算式：gain = 偏增益，risk = 偏差（只是数值偏好，与门颜色无关）
+     第 1 档 只有加减｜第 2 档 单独的乘除｜第 3 档 加减乘混合｜第 4 档 加减乘除混合｜第 5 档 括号优先级、最多 5 项 */
   function randOp(tier, q, mode) {
     var t = clamp(tier, 1, 5);
     var gain = mode === "gain";
     var roll = Math.random();
-    var a, b;
+    var a, b, c, d, e;
 
     if (t <= 1) {
-      return gain ? opAdd(randInt(1, 5)) : opSub(randInt(1, 3));
+      /* 第 1 档：单独的加减，也允许加减混合（如 8 + 6 - 3 / 2 + 3 - 8） */
+      if (gain) {
+        if (roll < 0.55) {
+          a = randInt(2, 7);
+          b = randInt(1, 5);
+          return opExpr(a + " + " + b, a + b);
+        }
+        a = randInt(4, 9);
+        b = randInt(1, 4);
+        c = randInt(1, Math.max(1, a + b - 1));
+        return opExpr(a + " + " + b + " - " + c, a + b - c);
+      }
+      if (roll < 0.5) {
+        a = randInt(3, 9);
+        b = a + randInt(1, 5);
+        return opExpr(a + " - " + b, a - b);
+      }
+      if (roll < 0.75) {
+        a = randInt(2, 5);
+        b = randInt(1, 4);
+        c = randInt(a + b + 1, a + b + 6);
+        return opExpr(a + " + " + b + " - " + c, a + b - c);
+      }
+      return opSub(randInt(1, 3));
     }
 
     if (t === 2) {
-      if (roll < 0.55) {
-        a = randInt(gain ? 5 : 10, gain ? 18 : 26);
-        b = randInt(2, gain ? 8 : 12);
-        return gain ? opExpr(a + "+" + b, a + b) : opExpr(a + "-" + b, a - b);
-      }
-      return gain ? opAdd(randInt(2, 9)) : opSub(randInt(2, 6));
+      /* 第 2 档：只有单独的乘除法 */
+      if (gain) return opMul(roll < 0.72 ? 2 : 3);
+      return opDiv(roll < 0.72 ? 2 : 3);
     }
 
     if (t === 3) {
-      if (gain && roll < 0.42) return opMul(2);
-      if (!gain && roll < 0.48) return opDiv(2);
-      a = randInt(6, 16);
-      return gain ? opAdd(a) : opSub(a);
+      /* 第 3 档：加减乘混合 */
+      if (gain) {
+        if (roll < 0.42) {
+          a = randInt(2, 5); b = randInt(2, 6); c = randInt(2, 9);
+          return opExpr(a + " × " + b + " + " + c, a * b + c);
+        }
+        if (roll < 0.78) {
+          a = randInt(2, 4); b = randInt(3, 6); c = randInt(2, a * b - 1);
+          return opExpr(a + " × " + b + " - " + c, a * b - c);
+        }
+        return opMul(2);
+      }
+      if (roll < 0.55) {
+        a = randInt(2, 5); b = randInt(2, 4); c = randInt(a * b + 1, a * b + 8);
+        return opExpr(c + " - " + a + " × " + b, c - a * b);
+      }
+      a = randInt(3, 7); b = randInt(2, 6); c = randInt(1, 3);
+      return opExpr(a + " + " + b + " - " + c, a + b - c);
     }
 
     if (t === 4) {
-      if (gain && roll < 0.34) return opMul(2);
-      if (!gain && roll < 0.42) return opDiv(2);
-      if (!gain && roll < 0.60) {
-        a = randInt(12, 24);
-        b = randInt(4, 10);
-        return opExpr(a + "-" + b, a - b);
-      }
+      /* 第 4 档：加减乘除混合（除法全部整除） */
       if (gain) {
-        a = randInt(3, 9);
-        b = randInt(3, 9);
-        return opExpr(a + "×" + b, a * b);
+        if (roll < 0.34) {
+          c = randInt(2, 4); a = c * randInt(2, 6); b = randInt(2, 5);
+          return opExpr(a + " × " + b + " ÷ " + c, a * b / c);
+        }
+        if (roll < 0.68) {
+          b = randInt(2, 4); a = b * randInt(2, 8); c = randInt(2, 9);
+          return opExpr(a + " ÷ " + b + " + " + c, a / b + c);
+        }
+        a = randInt(2, 4); b = randInt(2, 5); c = randInt(2, 3); d = c * randInt(2, 4);
+        return opExpr(a + " × " + b + " - " + d + " ÷ " + c, a * b - d / c);
       }
-      return opSub(randInt(8, 18));
+      if (roll < 0.55) {
+        b = randInt(2, 4); a = b * randInt(2, 6); c = randInt(2, 6);
+        return opExpr(a + " ÷ " + b + " - " + c, a / b - c);
+      }
+      b = randInt(2, 4); a = b * randInt(2, 5); c = randInt(1, 9);
+      return opExpr(a + " ÷ " + b + " + " + c, a / b + c);
     }
 
-    /* tier 5：相对运算 + 常量混合 */
-    if (gain && roll < 0.26) return opMulAdd(2, randInt(1, 6));
-    if (gain && roll < 0.44) return opMul(3);
-    if (!gain && roll < 0.36) return opDiv(randInt(2, 3));
-    if (!gain && roll < 0.62) return opSub(randInt(15, 30));
-    return gain ? opAdd(randInt(15, 32)) : opSub(randInt(10, 22));
+    /* 第 5 档：括号优先级，最多 5 项 */
+    if (gain) {
+      if (roll < 0.40) {
+        a = randInt(2, 8); b = randInt(2, 8); c = randInt(2, 3);
+        return opExpr("(" + a + " + " + b + ") × " + c, (a + b) * c);
+      }
+      if (roll < 0.72) {
+        a = randInt(2, 8); b = randInt(2, 8); c = randInt(2, 3); d = randInt(2, 9);
+        return opExpr("(" + a + " + " + b + ") × " + c + " - " + d, (a + b) * c - d);
+      }
+      a = randInt(2, 6); b = randInt(2, 6); c = randInt(2, 3);
+      d = randInt(2, 3); e = d * randInt(1, 3);
+      return opExpr("(" + a + " + " + b + ") × " + c + " - " + e + " ÷ " + d, (a + b) * c - e / d);
+    }
+    if (roll < 0.45) {
+      a = randInt(2, 5); b = randInt(2, 5); c = randInt(2, 3);
+      return opExpr("-(" + a + " + " + b + ") × " + c, -((a + b) * c));
+    }
+    a = randInt(4, 9); b = randInt(1, 3); c = randInt(2, 3); d = randInt(1, 5);
+    return opExpr("(" + a + " - " + b + ") × " + c + " - " + d, (a - b) * c - d);
   }
 
-  /* 人数很少时收窄单次减值，避免一道门直接清零（保留风险，但不至于瞬杀） */
+  /* 人数很少时收窄单次减值，并避免除法把队伍除空（保留风险，但不至于瞬杀） */
   function soften(op, q) {
-    if (q > 4) return op;
-    if (op.kind === "add" && op.v < 0) {
-      var limit = Math.max(1, q - 1);
-      if (Math.abs(op.v) > limit) {
-        op.v = -limit;
-        op.label = "-" + limit;
-      }
-    }
+    if (op.kind === "div" && q <= 4) return opAdd(-Math.max(1, q - 1));
+    if (op.kind !== "add" || op.v >= 0) return op;
+    var limit = q <= 4 ? Math.max(1, q - 1) : Math.max(1, Math.floor(q * 0.6));
+    if (-op.v > limit) return opAdd(-limit);
     return op;
   }
 
-  /* 生成一道门：左右各一个算式，保证至少有一侧让人数增加（高关偶尔允许两侧都减） */
+  /* 生成一道门：左右各一个算式，保证两侧结果不同、且至少有一侧让人数增加 */
   function makeGate(q, tier) {
     var a, b, ra, rb, i;
     var allowBothLoss = CFG.rules.allowLossBoth === "on";
@@ -311,9 +370,7 @@
     if (q >= CFG.team.countCap) {
       a = soften(opSub(randInt(1, 4 + tier * 2)), q);
       b = soften(opSub(randInt(6, 10 + tier * 3)), q);
-      ra = applyOp(a, q);
-      rb = applyOp(b, q);
-      return { left: a, right: b };
+      return tintGate(a, b);
     }
 
     for (i = 0; i < 24; i++) {
@@ -336,18 +393,64 @@
       }
     }
 
-    /* 两侧随机左右摆放 */
+    return tintGate(a, b);
+  }
+
+  /* 随机左右摆放，并给两侧分配互不相同的磨砂配色（配色只做区分，与好坏无关） */
+  function tintGate(a, b) {
+    var i = randInt(0, TINTS.length - 1);
+    var j = randInt(0, TINTS.length - 2);
+    if (j >= i) j += 1;
+    a.tint = i;
+    b.tint = j;
     if (Math.random() < 0.5) return { left: b, right: a };
     return { left: a, right: b };
   }
 
   /* ====================== 游戏状态 ====================== */
 
+  /* 飘字反馈色（只用于人数增减提示，与门的配色无关） */
   var COLOR = {
     good: { fill: "rgba(34,196,138,.20)", stroke: "rgba(92,244,186,.80)", text: "#c8ffe9" },
     bad: { fill: "rgba(214,58,92,.20)", stroke: "rgba(255,118,150,.78)", text: "#ffd2dc" },
     flat: { fill: "rgba(120,150,190,.16)", stroke: "rgba(160,196,235,.62)", text: "#dae8ff" }
   };
+
+  /* 磨砂玻璃门配色：只作视觉区分，绝不代表选项好坏（绿色门的算式结果也可能是负数） */
+  var TINTS = [
+    { top: "rgba(150,205,238,.34)", mid: "rgba(118,172,214,.20)", bot: "rgba(88,138,184,.28)", edge: "rgba(214,240,255,.40)", text: "#f3fbff" },
+    { top: "rgba(178,166,238,.34)", mid: "rgba(142,130,206,.20)", bot: "rgba(104,94,170,.28)", edge: "rgba(228,222,255,.38)", text: "#f7f5ff" },
+    { top: "rgba(152,226,206,.32)", mid: "rgba(120,190,176,.18)", bot: "rgba(88,152,142,.26)", edge: "rgba(216,255,242,.36)", text: "#f2fffb" },
+    { top: "rgba(228,228,238,.32)", mid: "rgba(186,192,208,.18)", bot: "rgba(140,148,166,.26)", edge: "rgba(242,248,255,.40)", text: "#ffffff" }
+  ];
+
+  var frostPattern = null;
+
+  /* 生成一次性的磨砂噪点纹理，叠加到门上模拟半透明磨砂玻璃 */
+  function frostFill() {
+    if (frostPattern !== null) return frostPattern;
+    frostPattern = false;
+    try {
+      var cv = document.createElement("canvas");
+      cv.width = 64;
+      cv.height = 64;
+      var g2 = cv.getContext("2d");
+      var img = g2.createImageData(64, 64);
+      var i, v;
+      for (i = 0; i < img.data.length; i += 4) {
+        v = 200 + Math.random() * 55;
+        img.data[i] = v;
+        img.data[i + 1] = v;
+        img.data[i + 2] = v;
+        img.data[i + 3] = Math.random() < 0.45 ? 0 : Math.round(Math.random() * 96);
+      }
+      g2.putImageData(img, 0, 0);
+      frostPattern = ctx.createPattern(cv, "repeat") || false;
+    } catch (err) {
+      frostPattern = false;
+    }
+    return frostPattern;
+  }
 
   var S = {
     mode: "ready",         /* ready / playing / paused / clearing / clear / over */
@@ -414,14 +517,8 @@
   function refreshGate(gate) {
     gate.left.res = applyOp(gate.left, S.count);
     gate.right.res = applyOp(gate.right, S.count);
-    gate.left.color = colorFor(gate.left.res);
-    gate.right.color = colorFor(gate.right.res);
-  }
-
-  function colorFor(res) {
-    if (res > S.count) return COLOR.good;
-    if (res < S.count) return COLOR.bad;
-    return COLOR.flat;
+    if (gate.left.tint == null) gate.left.tint = 0;
+    if (gate.right.tint == null) gate.right.tint = 1;
   }
 
   /* 队伍成员（画面上的小人）与人数保持同步 */
@@ -696,50 +793,92 @@
     var top = g.y, h = g.h, mid = W / 2;
     if (top > H + 2 || top + h < -2) return;
 
-    var alpha = g.judged ? 0.42 : 1;
-    var fs = clamp(Math.round(h * CFG.look.fontSize), 13, 30);
+    var alpha = g.judged ? 0.46 : 1;
+    var fs = clamp(Math.round(h * CFG.look.fontSize), 12, 40);
+    var r = Math.min(16, h * 0.26);
     var sides = [g.left, g.right];
-    var i, op, c, x, w;
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
+    var pat = frostFill();
+    var i, op, t, x, w, label, size, gd, hl;
 
     for (i = 0; i < 2; i++) {
       op = sides[i];
-      c = op.color || COLOR.flat;
+      t = TINTS[(op.tint || 0) % TINTS.length];
       x = i === 0 ? 0 : mid;
       w = i === 0 ? mid : W - mid;
 
-      roundRect(x, top, w, h, Math.min(12, h * 0.3));
-      ctx.fillStyle = c.fill;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      /* 半透明玻璃底 */
+      roundRect(x, top, w, h, r);
+      gd = ctx.createLinearGradient(x, top, x, top + h);
+      gd.addColorStop(0, t.top);
+      gd.addColorStop(0.55, t.mid);
+      gd.addColorStop(1, t.bot);
+      ctx.fillStyle = gd;
       ctx.fill();
-      ctx.lineWidth = 1.6;
-      ctx.strokeStyle = c.stroke;
+
+      /* 磨砂颗粒层 */
+      if (pat) {
+        ctx.save();
+        roundRect(x, top, w, h, r);
+        ctx.clip();
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.fillStyle = pat;
+        ctx.fillRect(x, top, w, h);
+        ctx.restore();
+      }
+
+      /* 顶部高光，做出玻璃厚度感 */
+      hl = ctx.createLinearGradient(x, top, x, top + Math.max(8, h * 0.45));
+      hl.addColorStop(0, "rgba(255,255,255,.24)");
+      hl.addColorStop(1, "rgba(255,255,255,0)");
+      roundRect(x + 2, top + 2, w - 4, Math.max(6, h * 0.45), Math.max(3, r * 0.6));
+      ctx.fillStyle = hl;
+      ctx.fill();
+
+      /* 磨砂边缘 */
+      roundRect(x, top, w, h, r);
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = t.edge;
       ctx.stroke();
 
+      /* 算式文字：长算式自动缩字号 */
+      label = op.label;
+      size = fs;
+      ctx.font = "800 " + size + "px system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif";
+      if (typeof ctx.measureText === "function") {
+        while (size > 11 && ctx.measureText(label).width > w - 20) {
+          size -= 1;
+          ctx.font = "800 " + size + "px system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif";
+        }
+      }
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = c.text;
-      ctx.font = "800 " + fs + "px system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif";
-
+      ctx.shadowColor = "rgba(4,10,22,.5)";
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = t.text;
       if (CFG.rules.showResult === "on") {
-        ctx.fillText(op.label, x + w / 2, top + h * 0.4);
-        ctx.font = "600 " + Math.round(fs * 0.6) + "px system-ui, sans-serif";
-        ctx.fillStyle = c.stroke;
-        ctx.fillText("= " + op.res, x + w / 2, top + h * 0.76);
+        ctx.fillText(label, x + w / 2, top + h * 0.38);
+        ctx.font = "600 " + Math.round(size * 0.58) + "px system-ui, sans-serif";
+        ctx.fillStyle = "rgba(255,255,255,.8)";
+        ctx.fillText("= " + op.res, x + w / 2, top + h * 0.73);
       } else {
-        ctx.fillText(op.label, x + w / 2, top + h * 0.5);
+        ctx.fillText(label, x + w / 2, top + h * 0.5);
       }
+      ctx.shadowBlur = 0;
+      ctx.restore();
     }
 
     /* 中线：门下压时是玩家要「站边」的分界 */
-    ctx.strokeStyle = g.judged ? "rgba(220,240,255,.3)" : "rgba(235,248,255,.9)";
+    ctx.save();
+    ctx.globalAlpha = g.judged ? 0.34 : 0.92;
+    ctx.strokeStyle = "rgba(238,251,255,.95)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(mid, top + 3);
     ctx.lineTo(mid, top + h - 3);
     ctx.stroke();
-
     ctx.restore();
   }
 

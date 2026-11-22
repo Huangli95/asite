@@ -79,12 +79,12 @@
       gapRatio: 0.012, gapMin: 3, gapMax: 6,
       rowGapMin: 2, rowGapMax: 48,
       topPad: 8,            /* 阵顶位置 / 入场动画终点 */
-      lineYOffset: 92,      /* 回收线距底部距离 */
-      baseYOffset: 58,      /* 发射器基准高度距底部距离 */
+      lineYOffset: 50,      /* 回收线距底部距离 */
+      baseYOffset: 30,      /* 发射器基准高度距底部距离 */
       enterSpeed: 170       /* 新波次入场下滑速度 */
     },
     wave: {
-      maxRows: 3,           /* 一次波次最多刷几行 */
+      maxRows: 5,           /* 一次波次最多刷几行 */
       rowsBase: 2,          /* 波次行数 = rowsBase + (n-1)/rowsPerStep */
       rowsPerStep: 2,
       spawnDelay: 0.5,      /* 清屏后到下一波的间隔 */
@@ -103,14 +103,14 @@
     difficulty: {
       descStep: 3,          /* 每下降几行 +1 难度 */
       shotsStep: 8,         /* 每发射几轮 +1 难度 */
-      hpSlope: 0.45,        /* 血量上限随难度增速 */
+      hpSlope: 0.69,        /* 血量上限随难度增速 */
       hpCap: 100,           /* 血量上限封顶（配色最深一档到 100 点血，再高颜色固定） */
       colorStep: 5,         /* 配色档：每多少点血量把方块颜色加深一档 */
       hpRollDown: 5         /* 新块血量最多下浮几级 */
     },
     feel: {
       fallPause: 0.14,      /* 撞到方块暂停下落时长（秒） */
-      fallPauseMax: 0.6,    /* 连续撞击累积暂停上限 */
+      fallPauseMax: 3,      /* 连续撞击累积暂停上限 */
       slowFactor: 0.3,      /* 球在阵内时下落减速系数 */
       shakeHit: 1.6, shakeHitMax: 6,
       shakeBlast: 2.4, shakeBlastMax: 8,
@@ -123,12 +123,12 @@
     },
     flat: {
       ratio: 0.16,          /* |vy|/speed 低于此值算横飞 */
-      hold: 0.5,            /* 横飞多久后放引导点 */
+      hold: 3,              /* 横飞多久后放引导点 */
       dotR: 7, dotDist: 52, dotLife: 2.6,
       kickDeg: 46           /* 撞引导点后的最小偏转角 */
     },
     special: {
-      chance: 0.3,          /* 每行出特效方块的概率 */
+      chance: 0.69,         /* 每行出特效方块的概率 */
       minHp: 9,             /* 需要行内存在血量 >= 该值的方块才掷概率 */
       perRowMin: 0, perRowMax: 1
     },
@@ -154,8 +154,39 @@
     return dst;
   }
 
+  /* 构建标记：配置面板标题会显示它，用来一眼分辨浏览器跑的是不是旧脚本。
+     每次改默认配置都要同时改这里和页面引用的 ?v=，两者保持一致。 */
+  var BUILD = "20261118b";
+  if (typeof window !== "undefined") window.__gbBuild = BUILD;
+
+  /* 清理历史遗留的配置存储键：早期版本曾把配置写进 localStorage，
+     残留键会被当成「旧配置」。本游戏面板本身不写任何存储，这里只是把旧键彻底清掉。 */
+  function purgeLegacyCfgStorage() {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    var legacy = ["gb-config", "gb-config-v1", "gb-cfg", "gb-cfg-v1", "gb-cfg-config",
+                  "game-bounce-config", "game-bounce-cfg", "bounce-config", "bounce-cfg"];
+    for (var i = 0; i < legacy.length; i++) {
+      try {
+        if (window.localStorage.getItem(legacy[i]) !== null) window.localStorage.removeItem(legacy[i]);
+      } catch (err) {}
+    }
+  }
+  purgeLegacyCfgStorage();
+
   var CFG = cloneCfg(DEFAULT_CFG);
-  if (typeof window !== "undefined" && window.GB_CONFIG) mergeCfg(CFG, window.GB_CONFIG);
+  /* 外部覆盖钩子必须带同一 BUILD 才生效：否则旧页面 / 旧快照注入的旧值会把新默认值顶掉 */
+  if (typeof window !== "undefined" && window.GB_CONFIG) {
+    if (window.GB_CONFIG_BUILD === BUILD) mergeCfg(CFG, window.GB_CONFIG);
+    else {
+      if (window.console && console.warn) console.warn("[game-bounce] 已忽略过期的 GB_CONFIG（缺少匹配的 GB_CONFIG_BUILD=" + BUILD + "）");
+      window.GB_CONFIG = null;
+    }
+  }
+  /* 启动快照：本次页面打开时的最终生效配置。打开设置面板时以它为准回锚，
+     保证「打开面板」只读不写，永远不会把旧值 / 外部篡改值显示出来。 */
+  var BOOT_CFG = cloneCfg(CFG);
+  /* 本局是否在面板里手动改过配置：只有真改过才允许偏离启动快照 */
+  var cfgDirty = false;
 
   /* 配置项元信息：弹窗表单就是按它自动生成的（path → 中文名/范围/单位） */
   var CFG_FIELDS = [
@@ -306,6 +337,7 @@
       val = Math.min(f.max, Math.max(f.min, val));   /* 手输越界一律夹到范围内 */
     }
     cur[parts[parts.length - 1]] = val;
+    cfgDirty = true;
     return true;
   }
 
@@ -320,11 +352,13 @@
 
   function cfgBuildForm() {
     var panel = cfgPanelEl();
-    if (!panel || panel.getAttribute("data-built") === "1") return;
+    if (!panel) return;
+    /* 只有同一构建且已建过的表单才复用；构建变了就整体重建，避免残留旧 DOM / 旧值 */
+    if (panel.getAttribute("data-built") === "1" && panel.getAttribute("data-build") === BUILD) return;
     var html = "";
     html += '<div class="gbf-mask" data-gbf-close="1"></div>';
     html += '<div class="gbf-card" role="dialog" aria-modal="true" aria-label="游戏配置">';
-    html += '<div class="gbf-head"><b>配置</b><i>改动立即生效 · 刷新页面恢复默认</i>';
+    html += '<div class="gbf-head"><b>配置</b><i>改动立即生效 · 刷新页面恢复默认 · build ' + BUILD + '</i>';
     html += '<button class="gbf-x" type="button" data-gbf-close="1" aria-label="关闭">×</button></div>';
     html += '<div class="gbf-body">';
     for (var i = 0; i < CFG_FIELDS.length; i++) {
@@ -356,15 +390,46 @@
     html += '</div></div>';
     panel.innerHTML = html;
     panel.setAttribute("data-built", "1");
+    panel.setAttribute("data-build", BUILD);
+    /* 事件只绑一次：重建表单时不能重复绑定，否则一次输入会触发多次写回 */
+    if (panel.getAttribute("data-bound") === "1") return;
+    panel.setAttribute("data-bound", "1");
 
     panel.addEventListener("input", function (e) {
       var el = e.target;
       if (!el || el.tagName !== "INPUT" || !el.getAttribute) return;
       var path = el.getAttribute("data-path");
+      if (!path) return;
+      /* 打上「正在编辑」标记：cfgSyncInputs 会跳过它，否则输入中途会被回写打断 */
+      el.setAttribute("data-editing", "1");
+      var f = cfgFieldOf(path);
       var raw = parseFloat(el.value);
-      if (!path || !isFinite(raw)) return;
-      cfgSet(path, raw);
-      applyCfg(path);
+      /* 空值或非法中间态（""、"-"、"1e" 等）：先不动 CFG，等失焦/回车再规范化 */
+      if (!isFinite(raw)) return;
+      /* 越界中间态（例如把 200 改成 60 途中的 "6"）：不夹取也不写回，同样留到失焦时处理 */
+      if (f && (raw < f.min || raw > f.max)) return;
+      if (cfgSet(path, raw)) applyCfg(path);
+    });
+    /* 回车等于确认：触发失焦，交给 focusout 统一规范化 */
+    panel.addEventListener("keydown", function (e) {
+      var el = e.target;
+      if (!el || el.tagName !== "INPUT") return;
+      if (e.key === "Enter" || e.keyCode === 13) {
+        if (el.blur) el.blur();
+        if (e.preventDefault) e.preventDefault();
+      }
+    });
+    /* 失焦/回车时才规范化：空值回填当前 CFG 值，越界夹到 min~max */
+    panel.addEventListener("focusout", function (e) {
+      var el = e.target;
+      if (!el || el.tagName !== "INPUT" || !el.getAttribute) return;
+      var path = el.getAttribute("data-path");
+      if (!path) return;
+      el.removeAttribute("data-editing");
+      var raw = parseFloat(el.value);
+      if (isFinite(raw)) cfgSet(path, raw);   /* cfgSet 内部按 min/max 夹取 */
+      cfgSyncInputs();                        /* 统一把框内文字回正为最终生效值 */
+      if (isFinite(raw)) applyCfg(path);
     });
     panel.addEventListener("change", function (e) {
       var el = e.target;
@@ -405,15 +470,27 @@
     if (!panel) return;
     var els = panel.querySelectorAll("input[data-path], select[data-path]");
     for (var i = 0; i < els.length; i++) {
+      /* 正在编辑的输入框不回写：否则用户刚敲的数字会被 CFG 旧值覆盖 */
+      if (els[i].getAttribute("data-editing") === "1") continue;
       var key = els[i].getAttribute("data-path");
       var v = cfgGet(key);
       if (String(els[i].value) !== String(v)) els[i].value = v;
     }
   }
 
+  /* 清掉所有输入框的「正在编辑」标记（打开面板 / 恢复默认时用） */
+  function cfgClearEditing() {
+    var panel = cfgPanelEl();
+    if (!panel) return;
+    var els = panel.querySelectorAll("input[data-editing]");
+    for (var i = 0; i < els.length; i++) els[i].removeAttribute("data-editing");
+  }
+
   function resetCfg() {
     var def = cloneCfg(DEFAULT_CFG);
     mergeCfg(CFG, def);
+    cfgDirty = false;
+    cfgClearEditing();
     cfgSyncInputs();
     applyCfg();
   }
@@ -422,6 +499,15 @@
     var panel = cfgPanelEl();
     if (!panel) return;
     cfgBuildForm();
+    /* 打开面板是只读动作，绝不把任何旧值写回 CFG。
+       若本次打开后还没在面板里改过配置，就把 CFG 回锚到启动快照，
+       即便有外部脚本或旧缓存把 CFG 改成了旧值，一开面板也会立刻纠正。 */
+    if (!cfgDirty) {
+      var beforeOpen = JSON.stringify(CFG);
+      mergeCfg(CFG, cloneCfg(BOOT_CFG));
+      if (JSON.stringify(CFG) !== beforeOpen) applyCfg();
+    }
+    cfgClearEditing();
     cfgSyncInputs();
     panel.hidden = false;
     cfgOpenFlag = true;
@@ -455,13 +541,19 @@ var BLAST_META = {
 };
 
 /* 允许外部在加载前覆盖特效配置 */
-if (typeof window !== "undefined" && window.GB_SPECIAL_CFG) mergeCfg(SPECIAL_CFG, window.GB_SPECIAL_CFG);
+if (typeof window !== "undefined" && window.GB_SPECIAL_CFG) {
+  if (window.GB_SPECIAL_CFG_BUILD === BUILD) mergeCfg(SPECIAL_CFG, window.GB_SPECIAL_CFG);
+  else window.GB_SPECIAL_CFG = null;
+}
 
 /* 波次刷新配置：直接引用 CFG.wave */
 var WAVE_CFG = CFG.wave;
 
 /* 允许外部在加载前覆盖波次配置 */
-if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, window.GB_WAVE_CFG);
+if (typeof window !== "undefined" && window.GB_WAVE_CFG) {
+  if (window.GB_WAVE_CFG_BUILD === BUILD) mergeCfg(WAVE_CFG, window.GB_WAVE_CFG);
+  else window.GB_WAVE_CFG = null;
+}
 
   var W = 360, H = 560, DPR = 1;
 
@@ -1186,8 +1278,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
       x = b.x + dir * CFG.flat.dotDist;
     }
     x = clamp(x, CFG.flat.dotR + 2, W - CFG.flat.dotR - 2);
-    /* 引导点紧贴球当下的行进路线放：球在底线下方横飞时同样要出点，靠它把球弹回场内，
-       所以纵坐标只按屏幕上下边界钳制，不再掐到回收线之上 */
+    /* 引导点紧贴球当下的行进路线放：纵坐标取自球当前的 y，只在屏幕上下边界内钳制 */
     var y = clamp(b.y, CFG.flat.dotR + 2, H - CFG.flat.dotR - 2);
     guide = { x: x, y: y, r: CFG.flat.dotR, life: CFG.flat.dotLife, max: CFG.flat.dotLife };
     b.flatT = 0;
@@ -1204,7 +1295,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
     b.vx = dirX * speed * Math.cos((CFG.flat.kickDeg * Math.PI / 180));
     b.vy = dirY * speed * Math.sin((CFG.flat.kickDeg * Math.PI / 180));
     b.flatT = 0;
-    /* 已经吃到救援，离线下的滞留计时重新起算，避免它刚被踢起身就被回收 */
+    /* 被弹出后重新起算线下滞留计时，避免刚出炮口的球刚被踢起身就被兜底回收 */
     b.belowT = 0;
     addSparks(guide.x, guide.y, 12, GUIDE_COLOR, 150);
     addRing({ x: guide.x - guide.r, y: guide.y - guide.r, w: guide.r * 2, h: guide.r * 2 });
@@ -1213,17 +1304,14 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
 
   /* 球是否算「漏过底线、该回收」。
      炮口本身就架在回收线下方（baseYOffset 58 < lineYOffset 92），球是朝上射出去的，
-     所以不能一刀切「y 越过线就收」，否则刚发射的球会被立刻吃掉；
-     但也不能像旧逻辑那样要求 vy > 0 才收：球被方块下沿沿 y 轴挤出底线时 vy 可能恰好
-     为 0 或朝上，这种球会带着水平速度在底线下方无限来回，ball 永远不回收 → 一直停在
-     flying → 方块阵不再下移 → checkLeak 不触发 → 生命不扣、游戏结束不了。
-     因此按「是否进过场」判定：进过场的球掉到线下先给一个极短的救援窗口（靠线下引导点
-     弹回场内），窗口用完立刻回收；没进过场的球按是否还在上升与滞留时长兜底收掉。 */
+     所以不能一刀切「y 越过线就收」，否则刚发射的球会被立刻吃掉。
+     判定只看「是否进过场」：
+     · 进过场的球：球心一越过回收线就立刻回收，不留任何线下存活窗口；
+     · 没进过场的球：仍在上升就先留着，一旦 vy >= 0（不再往场内爬）或在下方滞留超过
+       BELOW_GRACE 才兜底收掉。 */
   var BELOW_GRACE = 0.8;          /* 未进场的球（刚出炮口）在底线下方滞留多久后兜底回收（秒） */
-  var BELOW_RESCUE = 0.45;        /* 已进场的球掉到线下且仍在竖直下坠：几乎立刻回收（秒） */
-  var BELOW_RESCUE_FLAT = 1.6;    /* 已进场的球掉到线下但处于水平横飞：给足「等出点＋飞过去撞点」的时间（秒） */
-  /* 回收特效：必须落在球真正消失的坐标上（可能已经在回收线下方），
-     只有实在越出屏幕下边界时才钳到可视区内，避免特效看不见 */
+  /* 回收特效：落在球真正消失的坐标上（已进场的球就消失于回收线附近），
+     只有越出屏幕下边界时才钳到可视区内，避免特效看不见 */
   function recycleFx(b) {
     var ey = Math.min(b.y, H - 2);
     if (ey < 2) ey = 2;
@@ -1237,20 +1325,15 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
       b.belowT = 0;
       return false;
     }
-    if (!b.armed) {
-      if (b.vy >= 0) return true;          /* 出生点就在线下且不再上升：留着也是横飞 */
-      return b.belowT > BELOW_GRACE;       /* 朝上但慢到爬不回场地：兜底收掉 */
-    }
-    /* 掉到线下：只有仍在水平横飞的球才值得等引导点救援，竖直下坠的直接收掉 */
-    var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy) || 1;
-    var flat = Math.abs(b.vy) / sp < CFG.flat.ratio;
-    return b.belowT > (flat ? BELOW_RESCUE_FLAT : BELOW_RESCUE);
+    if (b.armed) return true;              /* 已进场：球心越过回收线立刻回收，无等待窗口 */
+    if (b.vy >= 0) return true;            /* 出生点就在线下且不再上升：留着也是横飞 */
+    return b.belowT > BELOW_GRACE;         /* 朝上但慢到爬不回场地：兜底收掉 */
   }
 
   function updateBalls(dt) {
     for (var i = balls.length - 1; i >= 0; i--) {
       var b = balls[i];
-      /* 球落到回收线下方后开始累计滞留时间：未进场的球用于兜底回收，已进场的球用于救援窗口 */
+      /* 球落到回收线下方后累计滞留时间：只服务于刚出炮口、还没进场的球做兜底回收 */
       if (b.y > state.lineY) b.belowT = (b.belowT || 0) + dt;
       var speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy) || 1;
       var steps = Math.max(1, Math.ceil(speed * dt / Math.max(2, b.r * 0.8)));
@@ -1258,7 +1341,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
       var recycled = false;
 
       /* 横飞检测：只有竖直速度分量极小（几乎全在横向来回反弹）且持续够久，才在必经之路上放点；
-         球在回收线下方时判定与门槛和线上完全一致（位置允许落在下方），
+         刚出炮口、还没进场的球仍在回收线下方，判定与门槛和线上完全一致；
          同一时刻只保留一个点，已有的点不会被顶掉，避免连续刷新堆叠 */
       if (speed > 0.01) {
         if (Math.abs(b.vy) / speed < CFG.flat.ratio) b.flatT = (b.flatT || 0) + dt;
@@ -2028,7 +2111,7 @@ if (typeof window !== "undefined" && window.GB_WAVE_CFG) mergeCfg(WAVE_CFG, wind
       specialCfg: SPECIAL_CFG, blastKinds: BLAST_KINDS, blastMeta: BLAST_META,
       markSpecials: markSpecials, blastHit: blastHit, triggerBlast: triggerBlast,
       rollBlastKind: rollBlastKind, waveCfg: WAVE_CFG,
-      cfg: CFG, defaultCfg: DEFAULT_CFG, cfgFields: CFG_FIELDS,
+      build: BUILD, bootCfg: BOOT_CFG, cfg: CFG, defaultCfg: DEFAULT_CFG, cfgFields: CFG_FIELDS,
       cfgGet: cfgGet, cfgSet: cfgSet, applyCfg: applyCfg, resetCfg: resetCfg,
       cfgBuildForm: cfgBuildForm, openCfg: openCfg, closeCfg: closeCfg,
       get cfgOpen() { return cfgOpenFlag; }, get CFG() { return CFG; },

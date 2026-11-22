@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="night">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#070c18">
+<title>肉鸽卡牌 · 小游戏</title>
+<link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/games.css?v=20261111b">
+<script src="/static/theme.js"></script>
+<style>
+/* ==========================================================================
+   肉鸽卡牌（手动出牌 / AI 挂机双模式）· 本页专属样式
+   1. 页面为「游戏机屏幕」式固定深色，避免主题切换影响卡牌可读性
+   2. 布局：左侧战场（HUD + 竞技区 + 手牌 + 出牌操作条），右侧可滚动战报
+   3. 所有动画时长由 JS 写入 --rg-anim 变量，随参数面板实时变化
+   ========================================================================== */
+
+[hidden] { display: none !important; }
+
+.rg-body {
+  --rg-accent: #b492ff;
+  --rg-cyan: #63e6ff;
+  --rg-ink: #dbe9ff;
+  --rg-ink-2: #93a9c8;
+  --rg-ink-3: #6b7f9c;
+  --rg-line: rgba(140, 160, 220, .18);
+  --rg-panel: rgba(14, 20, 34, .84);
+  --rg-panel-2: rgba(20, 28, 46, .7);
+  --rg-hp: #ff5f7a;
+  --rg-block: #63b8ff;
+  --rg-mana: #ffd68a;
+  --rg-attack: #ff7b8a;
+  --rg-defense: #63e6ff;
+  --rg-skill: #ffd68a;
+  --rg-anim: 240ms;
+  margin: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--rg-ink);
+  background:
+    radial-gradient(1100px 560px at 18% -12%, rgba(120, 80, 220, .24), transparent 62%),
+    radial-gradient(900px 520px at 92% 4%, rgba(40, 180, 220, .16), transparent 62%),
+    #070c18;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.rg-body .gm-top { background: rgba(7, 12, 24, .92); }
+.rg-body .gm-brand { color: #eaf6ff; }
+.rg-body .gm-nav a { color: #9fb4d0; }
+.rg-body .gm-nav a:hover { color: var(--rg-accent); }
+.rg-body .gm-ghost {
+  padding: 7px 12px;
+  font-size: 12px;
+  border-radius: 9px;
+  border: 1px solid rgba(180, 146, 255, .26);
+  background: rgba(180, 146, 255, .08);
+  color: #d9c9ff;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.rg-body .gm-ghost:hover { border-color: rgba(180, 146, 255, .6); }
+.rg-body .gm-ghost.is-on { border-color: rgba(255, 214, 138, .7); color: #ffd68a; }
+
+/* ------------------------------- 主布局 ------------------------------- */
+
+.rg-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 336px;
+  gap: 14px;
+  padding: 12px 16px 14px;
+}
+
+.rg-board {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ------------------------------- HUD ------------------------------- */
+
+.rg-hud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.rg-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--rg-line);
+  background: var(--rg-panel-2);
+  font-size: 12px;
+}
+.rg-chip em { font-style: normal; color: var(--rg-ink-3); }
+.rg-chip b { font-size: 14px; color: #eaf6ff; font-variant-numeric: tabular-nums; }
+.rg-chip--mana b { color: var(--rg-mana); }
+.rg-chip--hp b { color: var(--rg-hp); }
+.rg-chip--block b { color: var(--rg-block); }
+
+/* ------------------------------- 出牌模式开关 ------------------------------- */
+
+.rg-mode {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 11px;
+  border: 1px solid rgba(180, 146, 255, .34);
+  background: rgba(14, 20, 34, .86);
+}
+.rg-mode::before {
+  content: "出牌模式";
+  padding: 0 5px;
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--rg-ink-3);
+}
+.rg-mode-btn {
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--rg-ink-2);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.rg-mode-btn:hover { color: #eaf6ff; border-color: rgba(180, 146, 255, .34); }
+.rg-mode-btn.is-on { color: #12061f; font-weight: 700; background: linear-gradient(180deg, #c9a8ff, #9a6dff); }
+.rg-mode.is-ai .rg-mode-btn.is-on { color: #04212a; background: linear-gradient(180deg, #8ef2ff, #48c8e6); }
+
+/* ------------------------------- 竞技区 ------------------------------- */
+
+.rg-arena {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: 16px;
+  border: 1px solid var(--rg-line);
+  background:
+    radial-gradient(520px 260px at 50% 0%, rgba(120, 90, 220, .16), transparent 70%),
+    rgba(9, 14, 26, .6);
+  overflow: hidden;
+}
+
+.rg-side {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.rg-avatar {
+  position: relative;
+  width: 94px;
+  height: 94px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  user-select: none;
+}
+.rg-side--player .rg-avatar {
+  color: #d9f4ff;
+  border: 1px solid rgba(99, 230, 255, .38);
+  background: linear-gradient(160deg, rgba(99, 230, 255, .22), rgba(30, 60, 110, .4));
+  box-shadow: 0 0 0 1px rgba(99, 230, 255, .08), 0 14px 34px rgba(10, 30, 60, .5);
+}
+.rg-side--enemy .rg-avatar {
+  color: #ffd6e0;
+  border: 1px solid rgba(255, 120, 150, .34);
+  background: linear-gradient(160deg, rgba(255, 110, 145, .2), rgba(70, 20, 40, .45));
+  box-shadow: 0 0 0 1px rgba(255, 120, 150, .08), 0 14px 34px rgba(60, 10, 20, .45);
+}
+.rg-side--enemy .rg-avatar.is-hit { animation: rgShake .34s ease; }
+.rg-avatar.is-boss { border-color: rgba(255, 214, 138, .6); box-shadow: 0 0 26px rgba(255, 200, 120, .28); }
+.rg-avatar.is-elite { border-color: rgba(180, 146, 255, .6); }
+
+@keyframes rgShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-5px, 2px) rotate(-2deg); }
+  45% { transform: translate(5px, -2px) rotate(2deg); }
+  70% { transform: translate(-3px, 1px) rotate(-1deg); }
+}
+
+.rg-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #eaf6ff;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rg-hpwrap { width: min(180px, 100%); display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.rg-hpbar {
+  position: relative;
+  width: 100%;
+  height: 9px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .08);
+}
+.rg-hpbar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+.rg-side--player .rg-hpbar i { background: linear-gradient(90deg, #35d2a8, #63e6ff); }
+.rg-side--enemy .rg-hpbar i { background: linear-gradient(90deg, #ff8a6b, #ff4f76); }
+.rg-hpwrap b { font-size: 12px; color: var(--rg-ink-2); font-variant-numeric: tabular-nums; }
+
+.rg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  min-height: 20px;
+}
+.rg-tag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid var(--rg-line);
+  background: rgba(255, 255, 255, .05);
+  color: var(--rg-ink-2);
+}
+.rg-tag--buff { border-color: rgba(99, 230, 255, .4); color: #9fe9ff; }
+.rg-tag--debuff { border-color: rgba(255, 120, 150, .4); color: #ffb3c4; }
+.rg-tag--block { border-color: rgba(99, 184, 255, .45); color: #a8d4ff; }
+
+.rg-intent {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 9px;
+  border: 1px dashed rgba(255, 140, 160, .34);
+  color: #ffc0cd;
+  background: rgba(255, 90, 120, .08);
+}
+.rg-intent.is-defend { border-color: rgba(99, 184, 255, .34); color: #b7dcff; background: rgba(80, 150, 255, .08); }
+.rg-intent.is-charge { border-color: rgba(255, 214, 138, .34); color: #ffdfa6; background: rgba(255, 200, 100, .08); }
+
+.rg-vs {
+  flex: 0 0 auto;
+  font-size: 12px;
+  letter-spacing: .18em;
+  color: var(--rg-ink-3);
+  padding: 0 4px;
+}
+
+/* ------------------------------- 手牌 ------------------------------- */
+
+.rg-hand {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 9px;
+  padding: 2px 2px 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  min-height: 158px;
+}
+
+.rg-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: 112px;
+  padding: 26px 8px 10px;
+  border-radius: 13px;
+  border: 1px solid var(--rg-line);
+  background: linear-gradient(180deg, rgba(24, 32, 52, .96), rgba(14, 20, 34, .96));
+  text-align: center;
+  cursor: default;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  animation: rgIn .26s ease both;
+}
+.rg-card--attack { border-color: rgba(255, 123, 138, .26); }
+.rg-card--defense { border-color: rgba(99, 230, 255, .26); }
+.rg-card--skill { border-color: rgba(255, 214, 138, .26); }
+.rg-card--rare { box-shadow: inset 0 0 22px rgba(255, 200, 120, .12); }
+.rg-card .rg-cost {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1206;
+  background: linear-gradient(180deg, #ffe3a3, #ffbf5c);
+}
+.rg-card .rg-cname { font-size: 13px; font-weight: 700; color: #eef6ff; }
+.rg-card .rg-ctype { margin-top: 2px; font-size: 10px; color: var(--rg-ink-3); letter-spacing: .06em; }
+.rg-card .rg-ctext { margin-top: 6px; font-size: 11px; line-height: 1.5; color: var(--rg-ink-2); }
+.rg-card.is-playable { cursor: pointer; }
+.rg-card.is-playable:hover { transform: translateY(-4px); border-color: rgba(180, 146, 255, .6); }
+.rg-card.is-playing { animation: rgPlay var(--rg-anim) ease forwards; }
+.rg-card.is-dim { opacity: .42; }
+
+@keyframes rgIn {
+  from { opacity: 0; transform: translateY(10px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rgPlay {
+  0% { transform: none; box-shadow: none; }
+  45% { transform: translateY(-14px) scale(1.07); box-shadow: 0 0 30px rgba(180, 146, 255, .55); }
+  100% { transform: translateY(-6px) scale(.98); opacity: .2; }
+}
+
+.rg-hint {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--rg-ink-3);
+}
+
+/* ------------------------------- 手动出牌操作条 ------------------------------- */
+
+.rg-actionbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px 2px;
+}
+.rg-actionbar .rg-hint { flex: 1 1 auto; min-width: 0; }
+.rg-endturn {
+  flex: 0 0 auto;
+  padding: 9px 20px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: linear-gradient(180deg, #c9a8ff, #9a6dff);
+  color: #12061f;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 8px 22px rgba(120, 80, 220, .32);
+  transition: filter .18s ease, opacity .18s ease;
+}
+.rg-endturn:hover { filter: brightness(1.08); }
+.rg-endturn:disabled { cursor: default; filter: none; opacity: .42; box-shadow: none; }
+
+/* ------------------------------- 战报 ------------------------------- */
+
+.rg-logwrap {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  border: 1px solid var(--rg-line);
+  background: var(--rg-panel);
+  overflow: hidden;
+}
+.rg-log-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--rg-line);
+  font-size: 12px;
+  color: var(--rg-ink-2);
+}
+.rg-log-head span { font-weight: 600; color: #eaf6ff; letter-spacing: .04em; }
+.rg-log-head button {
+  margin-left: auto;
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 7px;
+  border: 1px solid var(--rg-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--rg-ink-2);
+  cursor: pointer;
+  font-family: inherit;
+}
+.rg-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  scrollbar-width: thin;
+}
+.rg-line { color: var(--rg-ink-2); padding: 1px 0; animation: rgFade .2s ease both; }
+.rg-line--turn { margin-top: 6px; color: #b9a8ff; font-weight: 600; border-top: 1px dashed rgba(180, 146, 255, .22); padding-top: 6px; }
+.rg-line--play { color: #dfe9ff; }
+.rg-line--dmg { color: #ffb3c0; }
+.rg-line--block { color: #a8d4ff; }
+.rg-line--buff { color: #9fe9ff; }
+.rg-line--enemy { color: #ffc0cd; }
+.rg-line--win { color: #7dffc4; font-weight: 600; }
+.rg-line--bad { color: #ff8a9c; font-weight: 600; }
+.rg-line--mute { color: var(--rg-ink-3); }
+
+@keyframes rgFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ------------------------------- 模态 ------------------------------- */
+
+.rg-modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.rg-modal-mask { position: absolute; inset: 0; background: rgba(4, 8, 16, .68); backdrop-filter: blur(3px); }
+.rg-modal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(86dvh, 780px);
+  border-radius: 16px;
+  border: 1px solid rgba(180, 146, 255, .3);
+  background: linear-gradient(180deg, rgba(16, 22, 38, .98), rgba(9, 14, 26, .98));
+  box-shadow: 0 26px 70px rgba(0, 0, 0, .55);
+  color: var(--rg-ink);
+}
+.rg-modal-card--wide { width: min(620px, 100%); }
+.rg-modal-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--rg-line);
+}
+.rg-modal-head b { font-size: 15px; color: #eef6ff; }
+.rg-modal-head i { font-style: normal; font-size: 11px; color: var(--rg-ink-3); }
+.rg-x {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--rg-line);
+  background: rgba(255, 255, 255, .05);
+  color: #cde8ff;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.rg-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 16px 10px; }
+.rg-modal-foot {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--rg-line);
+}
+
+.rg-btn {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 11px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid rgba(180, 146, 255, .26);
+  background: rgba(180, 146, 255, .08);
+  color: #d9c9ff;
+}
+.rg-btn:hover { border-color: rgba(180, 146, 255, .6); }
+.rg-btn--main { border-color: transparent; background: linear-gradient(180deg, #c9a8ff, #9a6dff); color: #12061f; font-weight: 700; }
+
+/* ------------------------------- 参数面板 ------------------------------- */
+
+.rg-cfg-group { padding: 8px 0 2px; }
+.rg-cfg-group h4 {
+  margin: 6px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  color: var(--rg-accent);
+}
+.rg-cfg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px dashed rgba(140, 160, 220, .1);
+}
+.rg-cfg-row label { flex: 1 1 auto; min-width: 0; font-size: 12px; color: #b8cde6; }
+.rg-cfg-row label small { display: block; font-size: 10px; color: var(--rg-ink-3); line-height: 1.4; }
+.rg-cfg-row input[type="number"] {
+  flex: 0 0 auto;
+  width: 88px;
+  padding: 6px 8px;
+  text-align: right;
+  font-size: 12px;
+  color: #eaf6ff;
+  border-radius: 8px;
+  border: 1px solid rgba(180, 146, 255, .22);
+  background: rgba(9, 16, 28, .9);
+  font-family: inherit;
+}
+.rg-cfg-row input[type="number"]:focus { outline: none; border-color: rgba(180, 146, 255, .7); box-shadow: 0 0 0 3px rgba(180, 146, 255, .14); }
+.rg-cfg-row select {
+  flex: 0 0 auto;
+  width: 112px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #eaf6ff;
+  border-radius: 8px;
+  border: 1px solid rgba(180, 146, 255, .22);
+  background: rgba(9, 16, 28, .9);
+  font-family: inherit;
+  cursor: pointer;
+}
+.rg-cfg-row select:focus { outline: none; border-color: rgba(180, 146, 255, .7); box-shadow: 0 0 0 3px rgba(180, 146, 255, .14); }
+.rg-cfg-row .rg-switch {
+  flex: 0 0 auto;
+  width: 52px;
+  padding: 5px 0;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  border: 1px solid rgba(140, 160, 220, .28);
+  background: rgba(255, 255, 255, .05);
+  color: var(--rg-ink-2);
+}
+.rg-cfg-row .rg-switch.is-on { border-color: rgba(125, 255, 196, .6); background: rgba(125, 255, 196, .14); color: #8dffcd; }
+.rg-cfg-note { margin: 10px 0 4px; font-size: 11px; line-height: 1.6; color: var(--rg-ink-3); }
+
+/* ------------------------------- 卡组面板 ------------------------------- */
+
+.rg-deck-list { display: flex; flex-direction: column; gap: 6px; padding: 6px 0 2px; }
+.rg-deck-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--rg-line);
+  background: rgba(255, 255, 255, .03);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: #dbe9ff;
+  width: 100%;
+}
+.rg-deck-item:hover { border-color: rgba(180, 146, 255, .5); }
+.rg-deck-item .rg-di-name { font-size: 13px; font-weight: 600; }
+.rg-deck-item .rg-di-cost {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1206;
+  background: linear-gradient(180deg, #ffe3a3, #ffbf5c);
+}
+.rg-deck-item .rg-di-text { font-size: 11px; color: var(--rg-ink-3); flex: 1 1 auto; min-width: 0; }
+.rg-deck-item .rg-di-pri { flex: 0 0 auto; font-size: 11px; color: #ffd68a; letter-spacing: 1px; }
+
+/* ------------------------------- 奖励 / 结算 ------------------------------- */
+
+.rg-reward-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 16px 4px; justify-content: center; }
+.rg-reward-card {
+  flex: 0 0 auto;
+  width: 148px;
+  padding: 30px 10px 12px;
+  border-radius: 13px;
+  border: 1px solid var(--rg-line);
+  background: linear-gradient(180deg, rgba(26, 34, 56, .98), rgba(14, 20, 34, .98));
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+  font-family: inherit;
+  color: var(--rg-ink);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  animation: rgIn .24s ease both;
+}
+.rg-reward-card:hover { transform: translateY(-5px); border-color: rgba(180, 146, 255, .7); box-shadow: 0 14px 34px rgba(0, 0, 0, .45); }
+.rg-reward-card .rg-cost {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1206;
+  background: linear-gradient(180deg, #ffe3a3, #ffbf5c);
+}
+.rg-reward-card .rg-rarity { position: absolute; top: 9px; right: 9px; font-size: 10px; color: var(--rg-ink-3); }
+.rg-reward-card .rg-cname { font-size: 14px; font-weight: 700; }
+.rg-reward-card .rg-ctext { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--rg-ink-2); }
+
+.rg-over-body { padding: 14px 16px; font-size: 13px; line-height: 1.9; color: var(--rg-ink-2); }
+.rg-over-body b { color: #eef6ff; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------- 暂停遮罩 ------------------------------- */
+
+.rg-pausemask {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(4, 8, 16, .62);
+  backdrop-filter: blur(2px);
+  color: #eaf6ff;
+}
+.rg-pausemask b { font-size: 22px; letter-spacing: .16em; }
+.rg-pausemask span { font-size: 12px; color: var(--rg-ink-2); }
+.rg-pausemask .rg-btn { flex: 0 0 auto; padding: 10px 26px; }
+
+/* ------------------------------- 浮层动画元素 ------------------------------- */
+
+.rg-fly {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: #f2f7ff;
+  border: 1px solid rgba(180, 146, 255, .6);
+  background: linear-gradient(180deg, rgba(40, 30, 70, .95), rgba(20, 14, 40, .95));
+  transition: transform var(--rg-anim) ease-in, opacity var(--rg-anim) ease-in;
+}
+.rg-fly--attack { border-color: rgba(255, 123, 138, .72); }
+.rg-fly--defense { border-color: rgba(99, 230, 255, .72); }
+.rg-fly--skill { border-color: rgba(255, 214, 138, .72); }
+.rg-float {
+  position: fixed;
+  z-index: 82;
+  pointer-events: none;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ff9db0;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .6);
+  animation: rgFloat .9s ease-out forwards;
+}
+.rg-float.is-block { color: #8fc8ff; }
+.rg-float.is-heal { color: #7dffc4; }
+.rg-float.is-buff { color: #ffd68a; }
+
+@keyframes rgFloat {
+  0% { opacity: 0; transform: translateY(6px) scale(.9); }
+  22% { opacity: 1; transform: translateY(-4px) scale(1.08); }
+  100% { opacity: 0; transform: translateY(-34px) scale(1); }
+}
+
+/* ------------------------------- 响应式 ------------------------------- */
+
+@media (max-width: 900px) {
+  .rg-body { height: auto; min-height: 100dvh; overflow: auto; }
+  .rg-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; padding: 10px 12px 12px; }
+  .rg-arena { min-height: 210px; }
+  .rg-logwrap { height: 190px; }
+  .rg-avatar { width: 78px; height: 78px; font-size: 17px; }
+  .rg-card { width: 104px; }
+  .rg-mode { margin-left: 0; flex: 1 1 100%; justify-content: center; }
+  .rg-endturn { padding: 8px 14px; font-size: 12px; }
+  .rg-body .gm-nav { display: none; }
+  .rg-body .gm-top { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+  .rg-body .gm-top-right { margin-left: auto; flex-wrap: wrap; gap: 6px; }
+}
+</style>
+</head>
+<body class="rg-body">
+
+<header class="gm-top">
+  <a class="gm-brand" href="/games"><i>游</i>小游戏</a>
+  <nav class="gm-nav">
+    <a href="/games">游戏大厅</a>
+    <a href="/">主站首页</a>
+    <a href="/forum">社区论坛</a>
+  </nav>
+  <div class="gm-top-right">
+    <button class="gm-ghost" id="rg-pause" type="button">暂停</button>
+    <button class="gm-ghost" id="rg-speed" type="button">1×</button>
+    <button class="gm-ghost" id="rg-deck-open" type="button">卡组</button>
+    <button class="gm-ghost" id="rg-cfg-open" type="button">设置</button>
+    <button class="gm-ghost" id="rg-restart" type="button">重开</button>
+  </div>
+</header>
+
+<main class="rg-shell">
+  <section class="rg-board">
+    <div class="rg-hud">
+      <span class="rg-chip"><em>波次</em><b id="rg-wave">1</b></span>
+      <span class="rg-chip"><em>回合</em><b id="rg-turn">1</b></span>
+      <span class="rg-chip rg-chip--mana" title="当前费用 / 费用上限：回合结束未用完的剩余费用会结转到下一回合，超出上限的部分丢弃"><em>费用</em><b id="rg-mana">3</b></span>
+      <span class="rg-chip rg-chip--block"><em>格挡</em><b id="rg-block">0</b></span>
+      <span class="rg-chip"><em>抽牌堆</em><b id="rg-draw">0</b></span>
+      <span class="rg-chip"><em>弃牌堆</em><b id="rg-discard">0</b></span>
+      <span class="rg-chip"><em>卡组</em><b id="rg-decksize">0</b></span>
+      <div class="rg-mode" id="rg-mode" role="group" aria-label="出牌模式">
+        <button class="rg-mode-btn" type="button" data-mode="manual">手动出牌</button>
+        <button class="rg-mode-btn" type="button" data-mode="ai">AI 挂机</button>
+      </div>
+    </div>
+
+    <div class="rg-arena">
+      <div class="rg-side rg-side--enemy">
+        <div class="rg-avatar" id="rg-enemy-avatar">敌</div>
+        <div class="rg-name" id="rg-enemy-name">-</div>
+        <div class="rg-hpwrap">
+          <div class="rg-hpbar"><i id="rg-enemy-hpbar"></i></div>
+          <b id="rg-enemy-hp">0 / 0</b>
+        </div>
+        <div class="rg-tags" id="rg-enemy-tags"></div>
+        <div class="rg-intent" id="rg-intent">意图：待定</div>
+      </div>
+
+      <div class="rg-vs">VS</div>
+
+      <div class="rg-side rg-side--player">
+        <div class="rg-avatar" id="rg-player-avatar">你</div>
+        <div class="rg-name">挑战者</div>
+        <div class="rg-hpwrap">
+          <div class="rg-hpbar"><i id="rg-player-hpbar"></i></div>
+          <b id="rg-player-hp">0 / 0</b>
+        </div>
+        <div class="rg-tags" id="rg-player-tags"></div>
+      </div>
+    </div>
+
+    <div class="rg-hand" id="rg-hand"></div>
+
+    <div class="rg-actionbar">
+      <div class="rg-hint" id="rg-hint">
+        手动出牌模式：点击手牌打出，点「结束回合」交给对手；也可随时切到「AI 挂机」自动出牌。胜利后三选一加卡，失败即重置。
+      </div>
+      <button class="rg-endturn" id="rg-endturn" type="button">结束回合</button>
+    </div>
+  </section>
+
+  <aside class="rg-logwrap">
+    <div class="rg-log-head">
+      <span>战报</span>
+      <button id="rg-log-top" type="button">回到最新</button>
+    </div>
+    <div class="rg-log" id="rg-log"></div>
+  </aside>
+</main>
+
+<div class="rg-pausemask" id="rg-pausemask" hidden>
+  <b>已暂停</b>
+  <span>战斗已停止推进，可随时继续</span>
+  <button class="rg-btn rg-btn--main" id="rg-pause-resume" type="button">继续</button>
+</div>
+
+<div class="rg-modal" id="rg-reward" hidden>
+  <div class="rg-modal-mask"></div>
+  <div class="rg-modal-card">
+    <div class="rg-modal-head">
+      <b>战利品 · 三选一</b>
+      <i>选择一张加入本局卡组</i>
+    </div>
+    <div class="rg-reward-grid" id="rg-reward-grid"></div>
+    <div class="rg-modal-foot">
+      <button class="rg-btn" id="rg-reward-skip" type="button">跳过</button>
+    </div>
+  </div>
+</div>
+
+<div class="rg-modal" id="rg-over" hidden>
+  <div class="rg-modal-mask"></div>
+  <div class="rg-modal-card">
+    <div class="rg-modal-head">
+      <b>本局结束</b>
+      <i>失败即重置，无存档</i>
+    </div>
+    <div class="rg-over-body" id="rg-over-body"></div>
+    <div class="rg-modal-foot">
+      <button class="rg-btn rg-btn--main" id="rg-over-again" type="button">重新开局</button>
+    </div>
+  </div>
+</div>
+
+<div class="rg-modal" id="rg-cfg" hidden>
+  <div class="rg-modal-mask" data-close="rg-cfg"></div>
+  <div class="rg-modal-card rg-modal-card--wide">
+    <div class="rg-modal-head">
+      <b>参数配置</b>
+      <i>改完即时生效或下一局生效</i>
+      <button class="rg-x" type="button" data-close="rg-cfg">×</button>
+    </div>
+    <div class="rg-modal-body" id="rg-cfg-body"></div>
+    <div class="rg-modal-foot">
+      <button class="rg-btn" id="rg-cfg-reset" type="button">恢复默认</button>
+      <button class="rg-btn" id="rg-cfg-export" type="button">导出 JSON</button>
+      <button class="rg-btn rg-btn--main" type="button" data-close="rg-cfg">完成</button>
+    </div>
+  </div>
+</div>
+
+<div class="rg-modal" id="rg-deck" hidden>
+  <div class="rg-modal-mask" data-close="rg-deck"></div>
+  <div class="rg-modal-card">
+    <div class="rg-modal-head">
+      <b>卡组与出牌优先</b>
+      <i>点击条目提升出牌优先级</i>
+      <button class="rg-x" type="button" data-close="rg-deck">×</button>
+    </div>
+    <div class="rg-modal-body" id="rg-deck-body"></div>
+    <div class="rg-modal-foot">
+      <button class="rg-btn rg-btn--main" type="button" data-close="rg-deck">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/game-rogue.js?v=20261116a"></script>
+</body>
+</html>

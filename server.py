@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 本地AI项目广场 —— 多板块站点服务
@@ -30,6 +30,7 @@ from urllib.parse import urlparse, parse_qs, unquote, quote
 import auth  # 账号与会话（独立 auth.db）
 import forum  # 论坛模块（独立 forum.db，自带读写接口）
 import novel  # 小说模块（独立 novel.db，自带读写接口；复用 auth 账号体系）
+import audio  # 音频素材模块（后台线程池调用 assets 脚本合成，产物按 TTL 过期清理）
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -116,6 +117,12 @@ BOARDS = [
         "key": "games",
         "name": "小游戏",
         "desc": "纯前端小游戏大厅，手机触屏与桌面键鼠双适配，打开即玩",
+        "status": "online",
+    },
+    {
+        "key": "audio",
+        "name": "音频素材",
+        "desc": "选好时长与心情，后台异步合成一段随机音乐素材；在线试听、随时下载，过期自动清理",
         "status": "online",
     },
 ]
@@ -466,6 +473,11 @@ class Handler(BaseHTTPRequestHandler):
             if any(one["key"] == key for one in GAMES):
                 return self._static("game-%s.html" % key)
             return self._error("小游戏不存在：" + key, 404)
+        # 音频素材板块：页面 + /api/audio/**（任务状态、试听下载由 audio 模块处理）
+        if path == "/audio":
+            return self._static("audio.html")
+        if audio.handle(self, "GET", path, qs):
+            return
         try:
             if path in ("/", "/index.html"):
                 return self._static("index.html")
@@ -596,6 +608,9 @@ class Handler(BaseHTTPRequestHandler):
         # 小说写接口（/api/novel/**）由 novel 模块处理，鉴权在模块内部复用站点账号体系
         if novel.handle(self, "POST", path, qs):
             return
+        # 音频素材写接口（/api/audio/jobs 提交生成任务）由 audio 模块处理
+        if audio.handle(self, "POST", path, qs):
+            return
         # 看板部分仍为只读展示层，数据由外部定时任务维护
         return self._error("看板为只读：新闻数据由定时任务写入 news.db；发帖请到 /forum", 403)
 
@@ -724,6 +739,16 @@ def main() -> None:
             print(f"[WARN] forum_admin.key 登记未完成：{reg['reason']}", flush=True)
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] forum_admin.key 登记异常：{e}", flush=True)
+
+    try:
+        auinfo = audio.init()
+        print(f"[OK] 音频素材就绪：产物目录 {auinfo['root']}；并发 {auinfo['concurrency']} / "
+              f"有效期 {auinfo['ttl_hours']:g} 小时 / 最多保留 {auinfo['max_files']} 个", flush=True)
+        if not auinfo["script_ok"]:
+            print(f"[WARN] 找不到生成脚本：{auinfo['script']}（音频素材会提交失败）", flush=True)
+        print(f"[OK] 音频素材入口：http://{args.host}:{args.port}/audio", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] 音频素材初始化失败：{e}", flush=True)
 
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     httpd.daemon_threads = True
