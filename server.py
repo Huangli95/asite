@@ -102,15 +102,9 @@ BOARDS = [
         "status": "online",
     },
     {
-        "key": "overview",
-        "name": "数据概览",
-        "desc": "新闻库的存量统计与近期入库分布",
-        "status": "online",
-    },
-    {
-        "key": "novel",
-        "name": "小说板块",
-        "desc": "章节管理（强制摘要）、角色与世界大事件、翻书详情与关系网拓扑图",
+        "key": "audio",
+        "name": "音频素材",
+        "desc": "选好时长与心情，后台异步合成一段随机音乐素材；在线试听、随时下载，过期自动清理",
         "status": "online",
     },
     {
@@ -120,9 +114,21 @@ BOARDS = [
         "status": "online",
     },
     {
-        "key": "audio",
-        "name": "音频素材",
-        "desc": "选好时长与心情，后台异步合成一段随机音乐素材；在线试听、随时下载，过期自动清理",
+        "key": "bored",
+        "name": "无聊一下",
+        "desc": "点进去随机给一个没什么用的小页面：能点两下的、只能看着的，十来个，每次都不一样",
+        "status": "online",
+    },
+    {
+        "key": "novel",
+        "name": "小说板块",
+        "desc": "章节管理（强制摘要）、角色与世界大事件、翻书详情与关系网拓扑图",
+        "status": "online",
+    },
+    {
+        "key": "overview",
+        "name": "数据概览",
+        "desc": "新闻库的存量统计与近期入库分布",
         "status": "online",
     },
 ]
@@ -476,6 +482,9 @@ class Handler(BaseHTTPRequestHandler):
         # 音频素材板块：页面 + /api/audio/**（任务状态、试听下载由 audio 模块处理）
         if path == "/audio":
             return self._static("audio.html")
+        # 无聊一下板块：单页面内随机抽取场景，/bored/<key> 也回到同一页面（带 hash 定位）
+        if path == "/bored" or path.startswith("/bored/"):
+            return self._static("bored.html")
         if audio.handle(self, "GET", path, qs):
             return
         try:
