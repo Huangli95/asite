@@ -268,6 +268,7 @@
 }
 .rg-intent.is-defend { border-color: rgba(99, 184, 255, .34); color: #b7dcff; background: rgba(80, 150, 255, .08); }
 .rg-intent.is-charge { border-color: rgba(255, 214, 138, .34); color: #ffdfa6; background: rgba(255, 200, 100, .08); }
+.rg-intent.is-multi { border-color: rgba(255, 96, 128, .5); color: #ffd0da; background: rgba(255, 70, 100, .14); font-weight: 600; }
 
 .rg-vs {
   flex: 0 0 auto;
@@ -308,6 +309,8 @@
 .rg-card--defense { border-color: rgba(99, 230, 255, .26); }
 .rg-card--skill { border-color: rgba(255, 214, 138, .26); }
 .rg-card--rare { box-shadow: inset 0 0 22px rgba(255, 200, 120, .12); }
+.rg-card--limited { box-shadow: inset 0 0 18px rgba(255, 150, 90, .16); }
+.rg-card .rg-uses { position: absolute; top: 6px; right: 6px; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 700; line-height: 1.5; color: #ffd9a8; background: rgba(255, 150, 90, .18); border: 1px solid rgba(255, 170, 110, .34); }
 .rg-card .rg-cost {
   position: absolute;
   top: 6px;
@@ -433,14 +436,32 @@
 
 /* ------------------------------- 模态 ------------------------------- */
 
-.rg-modal { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.rg-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 弹窗整体锁定在视口内：不撑破视口、不触发整页滚动 */
+  overflow: hidden;
+  overscroll-behavior: contain;
+  padding:
+    calc(12px + env(safe-area-inset-top))
+    calc(12px + env(safe-area-inset-right))
+    calc(12px + env(safe-area-inset-bottom))
+    calc(12px + env(safe-area-inset-left));
+}
 .rg-modal-mask { position: absolute; inset: 0; background: rgba(4, 8, 16, .68); backdrop-filter: blur(3px); }
 .rg-modal-card {
   position: relative;
   display: flex;
   flex-direction: column;
   width: min(560px, 100%);
-  max-height: min(86dvh, 780px);
+  min-height: 0;
+  /* 卡片高度受父级（已含安全区留白）约束，最高不超过一屏，超出交给内容区滚动 */
+  max-height: 100%;
+  overflow: hidden;
   border-radius: 16px;
   border: 1px solid rgba(180, 146, 255, .3);
   background: linear-gradient(180deg, rgba(16, 22, 38, .98), rgba(9, 14, 26, .98));
@@ -470,13 +491,21 @@
   line-height: 1;
   cursor: pointer;
 }
-.rg-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 16px 10px; }
+.rg-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 16px 10px;
+}
 .rg-modal-foot {
   flex: 0 0 auto;
   display: flex;
   gap: 10px;
   padding: 12px 16px 14px;
   border-top: 1px solid var(--rg-line);
+  background: linear-gradient(180deg, rgba(10, 16, 28, .55), rgba(9, 14, 26, .96));
 }
 
 .rg-btn {
@@ -590,7 +619,19 @@
 
 /* ------------------------------- 奖励 / 结算 ------------------------------- */
 
-.rg-reward-grid { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 16px 4px; justify-content: center; }
+.rg-reward-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-content: flex-start;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px 4px;
+}
 .rg-reward-card {
   flex: 0 0 auto;
   width: 148px;
@@ -625,8 +666,63 @@
 .rg-reward-card .rg-rarity { position: absolute; top: 9px; right: 9px; font-size: 10px; color: var(--rg-ink-3); }
 .rg-reward-card .rg-cname { font-size: 14px; font-weight: 700; }
 .rg-reward-card .rg-ctext { margin-top: 7px; font-size: 11px; line-height: 1.6; color: var(--rg-ink-2); }
+.rg-reward-card .rg-uses-note { margin-top: 6px; font-size: 10px; font-weight: 700; color: #8a4a12; }
 
-.rg-over-body { padding: 14px 16px; font-size: 13px; line-height: 1.9; color: var(--rg-ink-2); }
+/* --------------------------- 构筑核心选择 --------------------------- */
+
+.rg-chip--core b { color: #d7b6ff; }
+.rg-chip--core.is-on b { color: #c07cff; }
+
+.rg-core-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-content: start;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 6px;
+}
+
+.rg-core-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 13px 13px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--rg-ink);
+  background: linear-gradient(180deg, rgba(46, 34, 74, .92), rgba(28, 22, 46, .95));
+  border: 1px solid rgba(150, 118, 214, .42);
+  border-radius: 12px;
+  font-family: inherit;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.rg-core-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(192, 124, 255, .78);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .42);
+}
+
+.rg-core-card:focus-visible { outline: 2px solid #c07cff; outline-offset: 2px; }
+.rg-core-card .rg-core-name { font-size: 15px; font-weight: 700; color: #f2e8ff; }
+.rg-core-card .rg-core-tag { font-size: 11px; color: #c07cff; letter-spacing: .04em; }
+.rg-core-card .rg-core-desc { font-size: 11px; line-height: 1.65; color: var(--rg-ink-2); }
+
+.rg-over-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--rg-ink-2);
+}
 .rg-over-body b { color: #eef6ff; font-variant-numeric: tabular-nums; }
 
 /* ------------------------------- 暂停遮罩 ------------------------------- */
@@ -693,10 +789,25 @@
 /* ------------------------------- 响应式 ------------------------------- */
 
 @media (max-width: 900px) {
-  .rg-body { height: auto; min-height: 100dvh; overflow: auto; }
-  .rg-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; padding: 10px 12px 12px; }
+  /* 移动端同样保持整屏：页面不整页下拉，滚动只发生在棋盘容器内部 */
+  .rg-body { height: 100dvh; min-height: 0; overflow: hidden; }
+  /* 窄屏改为纵向 flex：棋盘按内容自身高度排布、不被压缩，战报面板紧随其后，
+     空间不足时仅由本容器滚动，避免手牌与操作条压到战报面板上 */
+  .rg-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 12px 12px;
+  }
+  .rg-board { flex: 0 0 auto; }
   .rg-arena { min-height: 210px; }
-  .rg-logwrap { height: 190px; }
+  /* 战报面板吸收剩余高度（最低 128px），内容超出时由 #rg-log 自身滚动 */
+  .rg-logwrap { flex: 1 1 auto; height: auto; min-height: 128px; }
   .rg-avatar { width: 78px; height: 78px; font-size: 17px; }
   .rg-card { width: 104px; }
   .rg-mode { margin-left: 0; flex: 1 1 100%; justify-content: center; }
@@ -704,6 +815,14 @@
   .rg-body .gm-nav { display: none; }
   .rg-body .gm-top { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .rg-body .gm-top-right { margin-left: auto; flex-wrap: wrap; gap: 6px; }
+  /* 弹窗在窄屏铺满可用宽度，高度仍锁定一屏，内容区自身滚动、底部按钮固定 */
+  .rg-modal { padding: 8px; padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left)); }
+  .rg-modal-card { width: 100%; max-height: 100%; border-radius: 14px; }
+  .rg-modal-head { padding: 11px 14px; }
+  .rg-modal-body { padding: 6px 14px 10px; }
+  .rg-core-grid { grid-template-columns: minmax(0, 1fr); padding: 10px 14px 4px; }
+  .rg-reward-grid { padding: 10px 14px 4px; }
+  .rg-modal-foot { padding: 10px 14px 12px; }
 }
 </style>
 </head>
@@ -735,6 +854,8 @@
       <span class="rg-chip"><em>抽牌堆</em><b id="rg-draw">0</b></span>
       <span class="rg-chip"><em>弃牌堆</em><b id="rg-discard">0</b></span>
       <span class="rg-chip"><em>卡组</em><b id="rg-decksize">0</b></span>
+      <span class="rg-chip rg-chip--core" title="本局构筑核心"><em>核心</em><b id="rg-core-name">未选核心</b></span>
+      <span class="rg-chip" title="跳过战利品后，下回合额外获得的费用（可超出费用上限）"><em>跳过补偿</em><b id="rg-skip">0</b></span>
       <div class="rg-mode" id="rg-mode" role="group" aria-label="出牌模式">
         <button class="rg-mode-btn" type="button" data-mode="manual">手动出牌</button>
         <button class="rg-mode-btn" type="button" data-mode="ai">AI 挂机</button>
@@ -805,6 +926,20 @@
   </div>
 </div>
 
+<div class="rg-modal" id="rg-core" hidden>
+  <div class="rg-modal-mask"></div>
+  <div class="rg-modal-card rg-modal-card--wide">
+    <div class="rg-modal-head">
+      <b>选择构筑核心</b>
+      <i>每局随机抽 3 个流派，核心决定本局走向，奖励会优先给出契合卡</i>
+    </div>
+    <div class="rg-core-grid" id="rg-core-grid"></div>
+    <div class="rg-modal-foot">
+      <button class="rg-btn" id="rg-core-none" type="button">不使用核心</button>
+    </div>
+  </div>
+</div>
+
 <div class="rg-modal" id="rg-over" hidden>
   <div class="rg-modal-mask"></div>
   <div class="rg-modal-card">
@@ -851,6 +986,6 @@
   </div>
 </div>
 
-<script src="/static/game-rogue.js?v=20261116a"></script>
+<script src="/static/game-rogue.js?v=20261127g"></script>
 </body>
 </html>

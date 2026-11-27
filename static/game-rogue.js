@@ -37,7 +37,8 @@
     maxMana: 8,
     handSize: 5,
     maxPlaysPerTurn: 6,
-    healPerWin: 3,
+    /* 每波战斗结束固定回复生命：通用续航兜底，避免缺少恢复手段的流派被磨死 */
+    healPerWin: 11,
 
     /* —— 战斗规则（即时生效） —— */
     playMode: 'manual',
@@ -50,9 +51,10 @@
     /* —— 敌人成长（下一波生效） —— */
     enemyHpBase: 34,
     enemyHpGrow: 8,
-    enemyHpMul: 1.05,
+    enemyHpMul: 1.11,
     enemyAtkBase: 6,
     enemyAtkGrow: 0.9,
+    enemyAtkMul: 1.03,
     eliteEvery: 4,
     bossEvery: 6,
     eliteMul: 1.3,
@@ -64,7 +66,58 @@
     rarityBoost: 0.06,
     startStrikes: 5,
     startGuards: 4,
-    startMends: 1
+    startMends: 1,
+
+    /* —— 构筑核心与跳过奖励（下一局生效） —— */
+    coreMode: 'choose',
+    coreCardWeight: 3,
+    skipManaMin: 2,
+
+    /* —— 流派系数（下一局生效，用于调平各流派可推进的最大轮数） —— */
+    bulwarkKeep: 0.7,
+    reflectMul: 0.15,
+    coreThorns: 1,
+    lifestealPct: 0.3,
+    lifestealCap: 14,
+    bloodFlat: 6,
+    bloodHpDmg: 0.08,
+    poisonBonus: 16,
+    /* 控制流：中毒结算从「层数×4 + 上限 12%」下调，改为层数×3.2 + 上限 9%，并把削攻力度上调 */
+    poisonTickMul: 3.2,
+    poisonHpPct: 0.09,
+    poisonWeakAtk: 0.55,
+    /* 控制流续航：每回合开始按中毒层数换格挡，避免持续叠毒时被反打暴毙 */
+    poisonBlockPct: 0.5,
+    poisonBlockCap: 0.25,
+    /* 格挡反击流：新增「格挡压制」把格挡直接转成伤害，并强化盾击倍率 */
+    bulwarkTempoPct: 0.45,
+    bulwarkBashMul: 1.1,
+    bulwarkBashBonus: 6,
+    bulwarkHpReflect: 0.1,
+    /* 血量上限消耗流：整体削弱，压住中位轮数最短的强度 */
+    sacHpDmg: 0.09,
+    sacStrengthPerHp: 3,
+    sacHealPerHp: 12,
+    sacBlockPerHp: 4,
+    sacWaveMaxHp: 4,
+    weakBonus: 10,
+    engineMana: 2,
+    engineCards: 3,
+    engineHeal: 7,
+    /* 闪避反击流：闪避层数不设上限（供影刃系数成长），改为限制每回合可闪避次数；反击数值相应下调以维持强度 */
+    dodgePerTurn: 1,
+    dodgeEvery: 2,
+    dodgePerRoundCap: 2,
+    dodgeCounter: 8,
+    dodgeCounterDex: 1,
+    dodgeCounterHpPct: 0.05,
+    dodgeStreakBonus: 3,
+    dodgeStreakCap: 16,
+    /* 多段攻击：一次攻击拆成多段逐段结算，闪避/格挡按段生效，避免一次闪避吞掉整次攻击 */
+    multiHitStart: 2,
+    multiHitChance: 0.45,
+    multiHitMax: 3,
+    multiHitTotalMul: 1.15
   };
 
   var SCHEMA = [
@@ -101,6 +154,34 @@
       ]
     },
     {
+      group: '构筑核心与跳过（下一局生效）',
+      items: [
+        { key: 'coreMode', label: '开局核心', type: 'select', options: [{ value: 'choose', label: '手动选择' }, { value: 'random', label: '随机分配' }, { value: 'none', label: '不使用核心' }], hint: '核心决定本局流派走向，六套核心对应六种流派' },
+        { key: 'coreCardWeight', label: '核心流派卡权重', type: 'number', min: 1, max: 8, step: 0.1, hint: '奖励中与核心同流派的卡牌出现权重' },
+        { key: 'skipManaMin', label: '跳过奖励回费下限', type: 'number', min: 2, max: 8, step: 1, hint: '跳过奖励后下回合额外恢复费用 = 本轮最高费卡费用，且不低于此值（最低 2）' },
+        { key: 'reflectMul', label: '磐石反震比例', type: 'number', min: 0, max: 2, step: 0.05, hint: '格挡反击流：受击时按实际受伤值反震的比例（可叠加卡牌反震）' },
+        { key: 'poisonTickMul', label: '蚀骨中毒倍率', type: 'number', min: 0.5, max: 6, step: 0.1, hint: '控制流：敌人中毒每回合结算伤害 = 层数 × 此倍率' },
+        { key: 'poisonWeakAtk', label: '蚀骨削减攻击/层', type: 'number', min: 0, max: 8, step: 0.5, hint: '控制流：每层中毒削减敌人攻击力' },
+        { key: 'poisonHpPct', label: '蚀骨上限伤害比例', type: 'number', min: 0, max: 0.2, step: 0.005, hint: '控制流：中毒结算额外附带敌人生命上限的此比例伤害' },
+        { key: 'bulwarkHpReflect', label: '磐石上限反震比例', type: 'number', min: 0, max: 0.2, step: 0.005, hint: '格挡反击流：每次受击反震额外附带敌人生命上限的此比例伤害' },
+        { key: 'sacWaveMaxHp', label: '每波血契上限回补', type: 'number', min: 0, max: 40, step: 1, hint: '血量上限消耗流：每波开始回补的生命上限' },
+        { key: 'sacBlockPerHp', label: '血盾格挡/上限', type: 'number', min: 0, max: 20, step: 1, hint: '血量上限消耗流：每消耗 1 点生命上限获得的格挡' },
+        { key: 'sacHpDmg', label: '血祭上限伤害比例', type: 'number', min: 0, max: 0.3, step: 0.005, hint: '血量上限消耗流：攻击额外附带自身生命上限的此比例伤害' },
+        { key: 'bloodHpDmg', label: '血怒上限伤害比例', type: 'number', min: 0, max: 0.3, step: 0.005, hint: '强攻吸血流：每次攻击额外附带敌人生命上限的此比例伤害' },
+        { key: 'lifestealCap', label: '单次吸血上限', type: 'number', min: 1, max: 60, step: 1, hint: '强攻吸血流：单次伤害可回复的生命上限' },
+        { key: 'sacStrengthPerHp', label: '血祭力量/上限', type: 'number', min: 0, max: 12, step: 0.5, hint: '血量上限消耗流：每消耗 1 点生命上限获得的力量' },
+        { key: 'dodgeEvery', label: '闪避获取间隔（回合）', type: 'number', min: 1, max: 6, step: 1, hint: '闪避反击流：每多少回合获得一次闪避层' },
+        { key: 'dodgePerRoundCap', label: '每回合最多闪避次数', type: 'number', min: 1, max: 6, step: 1, hint: '闪避反击流：每回合最多消耗几层闪避来抵挡伤害；闪避层数本身不设上限' },
+        { key: 'dodgeCounter', label: '闪避反击基础伤害', type: 'number', min: 0, max: 40, step: 1, hint: '闪避反击流：闪避成功后反击伤害（另加敏捷×1）' },
+        { key: 'dodgeCounterHpPct', label: '闪避反击上限比例', type: 'number', min: 0, max: 0.15, step: 0.005, hint: '闪避反击流：反击额外附带敌人生命上限的此比例伤害' },
+        { key: 'dodgeStreakBonus', label: '闪避连击每层加成', type: 'number', min: 0, max: 20, step: 1, hint: '闪避反击流：本波内每次成功闪避后，反击伤害逐次增加的数值' },
+        { key: 'bulwarkTempoPct', label: '磐石压制比例', type: 'number', min: 0, max: 1, step: 0.05, hint: '格挡反击流：回合开始按留存格挡的此比例对敌人造成直接伤害' },
+        { key: 'bulwarkBashMul', label: '盾击格挡倍率', type: 'number', min: 0, max: 3, step: 0.1, hint: '格挡反击流：盾击伤害 = 当前格挡 × 此倍率 + 固定值' },
+        { key: 'poisonBlockPct', label: '毒雾格挡/中毒层', type: 'number', min: 0, max: 2, step: 0.05, hint: '控制流：回合开始按敌人中毒层数换取格挡的比例' },
+        { key: 'poisonBlockCap', label: '毒雾格挡上限比例', type: 'number', min: 0, max: 1, step: 0.05, hint: '控制流：毒雾格挡不超过敌人生命上限的此比例' }
+      ]
+    },
+    {
       group: '敌人成长（下一波生效）',
       items: [
         { key: 'enemyHpBase', label: '首波敌人生命', type: 'number', min: 5, max: 500, step: 1 },
@@ -108,10 +189,15 @@
         { key: 'enemyHpMul', label: '生命波次乘数', type: 'number', min: 1, max: 1.6, step: 0.01 },
         { key: 'enemyAtkBase', label: '首波敌人攻击', type: 'number', min: 1, max: 100, step: 1 },
         { key: 'enemyAtkGrow', label: '每波攻击增量', type: 'number', min: 0, max: 50, step: 0.1 },
+        { key: 'enemyAtkMul', label: '攻击波次乘数', type: 'number', min: 1, max: 1.2, step: 0.005, hint: '每波攻击乘以此系数，用于压住后期数值膨胀' },
         { key: 'eliteEvery', label: '精英间隔波次', type: 'number', min: 0, max: 20, step: 1, hint: '0 表示不出现精英' },
         { key: 'bossEvery', label: '首领间隔波次', type: 'number', min: 0, max: 30, step: 1, hint: '0 表示不出现首领' },
         { key: 'eliteMul', label: '精英强度倍率', type: 'number', min: 1, max: 4, step: 0.05 },
-        { key: 'bossMul', label: '首领强度倍率', type: 'number', min: 1, max: 6, step: 0.05 }
+        { key: 'bossMul', label: '首领强度倍率', type: 'number', min: 1, max: 6, step: 0.05 },
+        { key: 'multiHitStart', label: '多段攻击起始波次', type: 'number', min: 1, max: 30, step: 1, hint: '从该波起敌人攻击有概率拆成多段' },
+        { key: 'multiHitChance', label: '多段攻击概率', type: 'number', min: 0, max: 1, step: 0.05, hint: '0 表示敌人始终单段攻击' },
+        { key: 'multiHitMax', label: '多段攻击最大段数', type: 'number', min: 2, max: 5, step: 1, hint: '首领可取满段数，精英最多 3 段，普通敌人最多 2 段' },
+        { key: 'multiHitTotalMul', label: '多段总伤害倍率', type: 'number', min: 0.5, max: 2, step: 0.05, hint: '多段合计伤害相对单段的倍率，逐段递增分配' }
       ]
     },
     {
@@ -150,30 +236,116 @@
   var TYPE_LABEL = { attack: '攻击', defense: '防御', skill: '技能' };
   var RARITY_LABEL = { basic: '初始', common: '普通', uncommon: '精良', rare: '稀有' };
 
-  var CARDS = {
-    strike: { name: '打击', cost: 1, type: 'attack', rarity: 'basic', ai: 6, text: '造成 6 点伤害', play: function (x) { x.damage(6); } },
-    guard: { name: '格挡', cost: 1, type: 'defense', rarity: 'basic', ai: 5, text: '获得 5 点格挡', play: function (x) { x.block(5); } },
-    mend: { name: '疗愈', cost: 2, type: 'skill', rarity: 'common', ai: 8, heal: 9, text: '回复 9 点生命', play: function (x) { x.heal(9); } },
-    heavy: { name: '重击', cost: 2, type: 'attack', rarity: 'common', ai: 13, text: '造成 13 点伤害', play: function (x) { x.damage(13); } },
-    twin: { name: '连斩', cost: 1, type: 'attack', rarity: 'common', ai: 8, text: '造成 4 点伤害两次', play: function (x) { x.damage(4); x.damage(4); } },
-    flurry: { name: '乱舞', cost: 0, type: 'attack', rarity: 'common', ai: 3, text: '造成 3 点伤害', play: function (x) { x.damage(3); } },
-    bash: { name: '碎击', cost: 2, type: 'attack', rarity: 'common', ai: 9, text: '造成 8 点伤害，施加 2 易伤', play: function (x) { x.damage(8); x.vulnerable(2); } },
-    riposte: { name: '反击', cost: 1, type: 'defense', rarity: 'common', ai: 6, text: '获得 4 点格挡并造成 3 点伤害', play: function (x) { x.block(4); x.damage(3); } },
-    sunder: { name: '破防', cost: 1, type: 'attack', rarity: 'uncommon', ai: 11, text: '造成 5 点伤害，施加 2 易伤', play: function (x) { x.damage(5); x.vulnerable(2); } },
-    poisonblade: { name: '毒刃', cost: 1, type: 'attack', rarity: 'uncommon', ai: 11, text: '造成 3 点伤害，施加 4 中毒', play: function (x) { x.damage(3); x.poison(4); } },
-    execute: { name: '处决', cost: 2, type: 'attack', rarity: 'uncommon', ai: 12, text: '造成 11 点伤害；目标生命低于 30% 时改为 24 点', play: function (x) { x.damage(S.enemy.hp <= S.enemy.maxHp * 0.3 ? 24 : 11); } },
-    cleave: { name: '横扫', cost: 2, type: 'attack', rarity: 'uncommon', ai: 10, text: '造成 9 点伤害并获得 3 点格挡', play: function (x) { x.damage(9); x.block(3); } },
-    siphon: { name: '汲血', cost: 2, type: 'attack', rarity: 'uncommon', ai: 9, heal: 4, text: '造成 8 点伤害，回复 4 点生命', play: function (x) { x.damage(8); x.heal(4); } },
-    ironwall: { name: '铁壁', cost: 2, type: 'defense', rarity: 'uncommon', ai: 13, text: '获得 13 点格挡', play: function (x) { x.block(13); } },
-    dodge: { name: '闪避', cost: 1, type: 'defense', rarity: 'uncommon', ai: 8, text: '获得 6 点格挡并抽 1 张', play: function (x) { x.block(6); x.draw(1); } },
-    focus: { name: '蓄力', cost: 1, type: 'skill', rarity: 'uncommon', ai: 7, text: '获得 2 点力量（攻击牌永久增伤）', play: function (x) { x.strength(2); } },
-    dex: { name: '灵巧', cost: 1, type: 'skill', rarity: 'uncommon', ai: 7, text: '获得 2 点敏捷（格挡牌额外加成）', play: function (x) { x.dexterity(2); } },
-    surge: { name: '能量涌动', cost: 0, type: 'skill', rarity: 'rare', ai: 5, text: '本回合获得 2 点费用', play: function (x) { x.mana(2); } },
-    insight: { name: '洞察', cost: 0, type: 'skill', rarity: 'rare', ai: 6, text: '抽 2 张牌', play: function (x) { x.draw(2); } },
-    lacerate: { name: '裂伤', cost: 2, type: 'skill', rarity: 'rare', ai: 16, text: '施加 8 点中毒', play: function (x) { x.poison(8); } },
-    berserk: { name: '狂暴', cost: 2, type: 'skill', rarity: 'rare', ai: 11, text: '获得 4 点力量，失去 4 点生命', play: function (x) { x.strength(4); x.selfDamage(4); } },
-    fortress: { name: '堡垒', cost: 3, type: 'defense', rarity: 'rare', ai: 20, text: '获得 20 点格挡并 +2 敏捷', play: function (x) { x.block(20); x.dexterity(2); } }
+  /* 流派标签：bulwark 格挡反击 / blood 强攻吸血 / control 控制 / engine 回费循环 /
+     sacrifice 血量上限消耗 / dodge 闪避反击 / temp 单轮临时突破 / grow 长期成长 */
+  var ARCH_LABEL = {
+    bulwark: '格挡反击', blood: '强攻吸血', control: '控制', engine: '回费循环',
+    sacrifice: '血祭上限', dodge: '闪避反击', temp: '临时突破', grow: '长期成长'
   };
+
+  var CARDS = {
+    /* —— 初始与通用 —— */
+    strike: { name: '打击', cost: 1, type: 'attack', rarity: 'basic', ai: 6, text: '造成 6 点伤害', play: function (x) { x.damage(6); } },
+    guard: { name: '格挡', cost: 1, type: 'defense', rarity: 'basic', arch: 'bulwark', ai: 5, pureBlock: true, text: '获得 5 点格挡', play: function (x) { x.block(5); } },
+    mend: { name: '疗愈', cost: 2, type: 'skill', rarity: 'common', ai: 8, heal: 9, text: '回复 9 点生命', play: function (x) { x.heal(9); } },
+
+    /* —— 强攻吸血 —— */
+    heavy: { name: '重击', cost: 2, type: 'attack', rarity: 'common', arch: 'blood', ai: 13, text: '造成 13 点伤害', play: function (x) { x.damage(13); } },
+    twin: { name: '连斩', cost: 1, type: 'attack', rarity: 'common', arch: 'blood', ai: 8, text: '造成 4 点伤害两次', play: function (x) { x.damage(4); x.damage(4); } },
+    execute: { name: '处决', cost: 2, type: 'attack', rarity: 'uncommon', arch: 'blood', ai: 12, text: '造成 11 点伤害；目标生命低于 30% 时改为 24 点', play: function (x) { x.damage(S.enemy.hp <= S.enemy.maxHp * 0.3 ? 24 : 11); } },
+    siphon: { name: '汲血', cost: 2, type: 'attack', rarity: 'uncommon', arch: 'blood', ai: 9, heal: 4, text: '造成 8 点伤害，回复 4 点生命', play: function (x) { x.damage(8); x.heal(4); } },
+    focus: { name: '蓄力', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'blood', ai: 7, text: '获得 2 点力量（攻击牌永久增伤）', play: function (x) { x.strength(2); } },
+    berserk: { name: '狂暴', cost: 2, type: 'skill', rarity: 'rare', arch: 'blood', ai: 11, text: '获得 4 点力量，失去 4 点生命', play: function (x) { x.strength(4); x.selfDamage(4); } },
+    bloodstrike: { name: '血刃', cost: 1, type: 'attack', rarity: 'common', arch: 'blood', ai: 11, text: '造成 9 点伤害，失去 2 点生命', play: function (x) { x.damage(9); x.selfDamage(2); } },
+    bloodlust: { name: '血之渴望', cost: 2, type: 'attack', rarity: 'uncommon', arch: 'blood', ai: 14, text: '造成 10 点伤害，回复 6 点生命', play: function (x) { x.damage(10); x.heal(6); } },
+    leech: { name: '嗜血术', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'blood', ai: 10, useLimit: 3, text: '本局获得 10% 吸血（造成伤害回复生命）', play: function (x) { x.lifesteal(0.1); } },
+    rage: { name: '暴怒', cost: 2, type: 'skill', rarity: 'rare', arch: 'blood', ai: 16, text: '获得 3 点力量，抽 1 张牌', play: function (x) { x.strength(3); x.draw(1); } },
+    bloodstorm: { name: '血风暴', cost: 3, type: 'attack', rarity: 'rare', arch: 'blood', ai: 24, text: '造成 9 点伤害三次，失去 4 点生命', play: function (x) { x.damage(9); x.damage(9); x.damage(9); x.selfDamage(4); } },
+
+    /* —— 格挡反击 —— */
+    riposte: { name: '反击', cost: 1, type: 'defense', rarity: 'common', arch: 'bulwark', ai: 6, text: '获得 4 点格挡并造成 3 点伤害', play: function (x) { x.block(4); x.damage(3); } },
+    cleave: { name: '横扫', cost: 2, type: 'attack', rarity: 'uncommon', arch: 'bulwark', ai: 10, text: '造成 9 点伤害并获得 3 点格挡', play: function (x) { x.damage(9); x.block(3); } },
+    ironwall: { name: '铁壁', cost: 2, type: 'defense', rarity: 'uncommon', arch: 'bulwark', ai: 13, pureBlock: true, text: '获得 13 点格挡', play: function (x) { x.block(13); } },
+    dex: { name: '灵巧', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'bulwark', ai: 7, text: '获得 2 点敏捷（格挡牌额外加成）', play: function (x) { x.dexterity(2); } },
+    fortress: { name: '堡垒', cost: 3, type: 'defense', rarity: 'rare', arch: 'bulwark', ai: 20, text: '获得 20 点格挡并 +2 敏捷', play: function (x) { x.block(20); x.dexterity(2); } },
+    barrier: { name: '铁壁护身', cost: 1, type: 'defense', rarity: 'common', arch: 'bulwark', ai: 10, pureBlock: true, text: '获得 8 点格挡', play: function (x) { x.block(8); } },
+    thornmail: { name: '荆棘甲', cost: 1, type: 'skill', rarity: 'common', arch: 'bulwark', ai: 9, text: '获得 2 点荆棘（每次受击反伤）', play: function (x) { x.thorns(2); } },
+    shieldbash: { name: '盾击', cost: 1, type: 'attack', rarity: 'uncommon', arch: 'bulwark', ai: 13, text: '造成「格挡 × 1.1 + 6」点伤害', play: function (x) { x.damage(Math.floor(S.player.block * CONFIG.bulwarkBashMul) + Math.round(CONFIG.bulwarkBashBonus)); } },
+    bashwall: { name: '盾墙冲锋', cost: 2, type: 'defense', rarity: 'uncommon', arch: 'bulwark', ai: 15, text: '获得 8 点格挡，然后造成「格挡 × 0.6」点伤害', play: function (x) { x.block(8); x.damage(Math.floor(S.player.block * 0.6)); } },
+    ramcrush: { name: '碎盾重锤', cost: 2, type: 'attack', rarity: 'rare', arch: 'bulwark', ai: 20, text: '造成「格挡 × 1.2 + 6」伤害，随后失去一半格挡', play: function (x) { var n = Math.floor(S.player.block * 1.2) + 6; S.player.block = Math.floor(S.player.block * 0.5); x.damage(n); } },
+    reflect: { name: '反击姿态', cost: 2, type: 'skill', rarity: 'rare', arch: 'bulwark', ai: 15, useLimit: 4, text: '本场战斗反震比例 +30%，获得 8 点格挡', play: function (x) { x.reflect(0.3); x.block(8); } },
+    unbreak: { name: '不坏之躯', cost: 3, type: 'defense', rarity: 'rare', arch: 'bulwark', ai: 20, text: '获得 20 点格挡，生命上限 +5', play: function (x) { x.block(20); x.maxHpUp(5); } },
+
+    /* —— 控制 —— */
+    bash: { name: '碎击', cost: 2, type: 'attack', rarity: 'common', arch: 'control', ai: 9, text: '造成 8 点伤害，施加 2 易伤', play: function (x) { x.damage(8); x.vulnerable(2); } },
+    sunder: { name: '破防', cost: 1, type: 'attack', rarity: 'uncommon', arch: 'control', ai: 11, text: '造成 5 点伤害，施加 2 易伤', play: function (x) { x.damage(5); x.vulnerable(2); } },
+    poisonblade: { name: '毒刃', cost: 1, type: 'attack', rarity: 'uncommon', arch: 'control', ai: 11, text: '造成 3 点伤害，施加 4 中毒', play: function (x) { x.damage(3); x.poison(4); } },
+    lacerate: { name: '裂伤', cost: 2, type: 'skill', rarity: 'rare', arch: 'control', ai: 16, text: '施加 8 点中毒', play: function (x) { x.poison(8); } },
+    weaken: { name: '削弱', cost: 1, type: 'skill', rarity: 'common', arch: 'control', ai: 9, text: '施加 2 层虚弱', play: function (x) { x.weak(2); } },
+    enfeeble: { name: '凋零', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'control', ai: 10, text: '施加 3 点中毒并 1 层虚弱', play: function (x) { x.poison(3); x.weak(1); } },
+    toxicburst: { name: '剧毒爆发', cost: 2, type: 'attack', rarity: 'uncommon', arch: 'control', ai: 13, text: '造成 4 点伤害，施加 5 点中毒', play: function (x) { x.damage(4); x.poison(5); } },
+    lockdown: { name: '封锁', cost: 2, type: 'skill', rarity: 'rare', arch: 'control', ai: 16, text: '施加 3 层虚弱，清空敌人格挡', play: function (x) { x.weak(3); x.stripBlock(); } },
+    plague: { name: '瘟疫', cost: 3, type: 'skill', rarity: 'rare', arch: 'control', ai: 22, text: '施加 12 点中毒', play: function (x) { x.poison(12); } },
+    miasma: { name: '毒雾护体', cost: 1, type: 'defense', rarity: 'common', arch: 'control', ai: 11, text: '获得「敌人中毒层数 × 0.6 + 4」点格挡', play: function (x) { x.block(Math.floor((S.enemy.poison || 0) * 0.6) + 4); } },
+
+    /* —— 回费抽卡回血 —— */
+    surge: { name: '能量涌动', cost: 0, type: 'skill', rarity: 'rare', arch: 'engine', ai: 5, text: '本回合获得 2 点费用', play: function (x) { x.mana(2); } },
+    insight: { name: '洞察', cost: 0, type: 'skill', rarity: 'rare', arch: 'engine', ai: 6, text: '抽 2 张牌', play: function (x) { x.draw(2); } },
+    recycle: { name: '回收', cost: 1, type: 'skill', rarity: 'common', arch: 'engine', ai: 8, text: '抽 2 张牌', play: function (x) { x.draw(2); } },
+    bargain: { name: '精算', cost: 0, type: 'skill', rarity: 'uncommon', arch: 'engine', ai: 7, text: '本回合获得 1 点费用，抽 1 张牌', play: function (x) { x.mana(1); x.draw(1); } },
+    flowstate: { name: '流动', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'engine', ai: 10, text: '抽 1 张牌，回复 6 点生命', play: function (x) { x.draw(1); x.heal(6); } },
+    wellspring: { name: '泉涌', cost: 2, type: 'skill', rarity: 'rare', arch: 'engine', ai: 14, text: '本回合获得 3 点费用，抽 3 张牌', play: function (x) { x.mana(3); x.draw(3); } },
+    cyclelight: { name: '循环之光', cost: 0, type: 'skill', rarity: 'rare', arch: 'engine', ai: 12, text: '抽 3 张牌，本回合获得 1 点费用', play: function (x) { x.draw(3); x.mana(1); } },
+
+    /* —— 闪避反击 —— */
+    flurry: { name: '乱舞', cost: 0, type: 'attack', rarity: 'common', arch: 'dodge', ai: 3, text: '造成 3 点伤害', play: function (x) { x.damage(3); } },
+    dodge: { name: '闪避', cost: 1, type: 'defense', rarity: 'uncommon', arch: 'dodge', ai: 8, text: '获得 6 点格挡并抽 1 张牌', play: function (x) { x.block(6); x.draw(1); } },
+    shadowstep: { name: '影步', cost: 1, type: 'defense', rarity: 'common', arch: 'dodge', ai: 10, text: '获得 1 层闪避，6 点格挡', play: function (x) { x.dodge(1); x.block(6); } },
+    evasion: { name: '虚影', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'dodge', ai: 11, text: '获得 2 层闪避', play: function (x) { x.dodge(2); } },
+    counterslash: { name: '影袭', cost: 1, type: 'attack', rarity: 'uncommon', arch: 'dodge', ai: 13, text: '造成 4 点伤害两次，获得 1 层闪避', play: function (x) { x.damage(4); x.damage(4); x.dodge(1); } },
+    dance: { name: '风影之舞', cost: 2, type: 'skill', rarity: 'rare', arch: 'dodge', ai: 16, text: '获得 2 层闪避，抽 2 张牌', play: function (x) { x.dodge(2); x.draw(2); } },
+    afterimage: { name: '残像', cost: 2, type: 'defense', rarity: 'rare', arch: 'dodge', ai: 18, text: '获得 2 层闪避，10 点格挡', play: function (x) { x.dodge(2); x.block(10); } },
+    shadowfang: { name: '影刃', cost: 1, type: 'attack', rarity: 'uncommon', arch: 'dodge', ai: 13, text: '造成「2 + 闪避层数 × 3」点伤害', play: function (x) { x.damage(2 + (S.player.dodge || 0) * 3); } },
+    phantomrush: { name: '幻影突袭', cost: 2, type: 'attack', rarity: 'rare', arch: 'dodge', ai: 20, text: '造成 4 点伤害（闪避层数 +1）次，并获得 1 层闪避', play: function (x) { var hits = Math.min(5, 1 + (S.player.dodge || 0)); for (var i = 0; i < hits; i++) x.damage(4); x.dodge(1); } },
+
+    /* —— 血量上限消耗 —— */
+    sacrifice: { name: '血祭', cost: 0, type: 'skill', rarity: 'common', arch: 'sacrifice', ai: 10, sac: 4, text: '消耗 4 点生命上限，获得 2 点力量并回复 8 点生命', play: function (x) { if (x.spendMaxHp(4) > 0) { x.strength(2); x.heal(8); } } },
+    immolate: { name: '献身', cost: 1, type: 'attack', rarity: 'uncommon', arch: 'sacrifice', ai: 13, sac: 5, text: '消耗 5 点生命上限，造成 15 点伤害', play: function (x) { if (x.spendMaxHp(5) > 0) x.damage(15); } },
+    coreburn: { name: '内核燃烧', cost: 0, type: 'skill', rarity: 'uncommon', arch: 'sacrifice', ai: 9, sac: 3, text: '消耗 3 点生命上限，本回合获得 2 点费用并抽 1 张牌', play: function (x) { if (x.spendMaxHp(3) > 0) { x.mana(2); x.draw(1); } } },
+    bloodnova: { name: '血爆', cost: 2, type: 'attack', rarity: 'rare', arch: 'sacrifice', ai: 20, text: '造成「本局已消耗生命上限」点伤害，并获得等量格挡', play: function (x) { var n = Math.max(1, S.player.hpSpent); x.damage(n); x.block(n); } },
+    overclock: { name: '超载核心', cost: 2, type: 'skill', rarity: 'rare', arch: 'sacrifice', ai: 18, sac: 6, useLimit: 3, text: '消耗 6 点生命上限，获得 4 点力量，永久 +1 费用上限', play: function (x) { if (x.spendMaxHp(6) > 0) { x.strength(4); x.manaCapUp(1); } } },
+
+    /* —— 单轮临时突破（回合结束消失） —— */
+    tempfury: { name: '战意爆发', cost: 1, type: 'skill', rarity: 'common', arch: 'temp', ai: 9, text: '本回合 +4 点力量，回合结束消失', play: function (x) { x.tempStrength(4); } },
+    tempform: { name: '临时壁垒', cost: 1, type: 'defense', rarity: 'common', arch: 'temp', ai: 9, text: '本回合 +3 点敏捷，获得 12 点格挡', play: function (x) { x.tempDexterity(3); x.block(12); } },
+    tempmana: { name: '能量透支', cost: 0, type: 'skill', rarity: 'uncommon', arch: 'temp', ai: 6, text: '本回合获得 3 点费用（可超出费用上限）', play: function (x) { x.manaBurst(3); } },
+    tempflurry: { name: '疾风决', cost: 1, type: 'attack', rarity: 'rare', arch: 'temp', ai: 15, text: '本回合 +2 点敏捷，造成 4 点伤害三次', play: function (x) { x.tempDexterity(2); x.damage(4); x.damage(4); x.damage(4); } },
+    temprice: { name: '血怒战吼', cost: 2, type: 'skill', rarity: 'rare', arch: 'temp', ai: 16, text: '本回合 +7 点力量，失去 3 点生命', play: function (x) { x.tempStrength(7); x.selfDamage(3); } },
+
+    /* —— 长期成长（永久） —— */
+    ironsoul: { name: '铁血锻体', cost: 2, type: 'skill', rarity: 'uncommon', arch: 'grow', ai: 10, useLimit: 4, text: '永久 +14 点生命上限，并回复 14 点生命', play: function (x) { x.maxHpUp(14); x.heal(14); } },
+    growguard: { name: '血色誓约', cost: 1, type: 'skill', rarity: 'uncommon', arch: 'grow', ai: 12, useLimit: 5, text: '永久 +6 点生命上限，并回复 6 点生命', play: function (x) { x.maxHpUp(6); x.heal(6); } },
+    manawell: { name: '魔力源泉', cost: 2, type: 'skill', rarity: 'rare', arch: 'grow', ai: 12, useLimit: 4, text: '永久 +1 点费用上限', play: function (x) { x.manaCapUp(1); } },
+    arcaneeye: { name: '秘法之眼', cost: 2, type: 'skill', rarity: 'uncommon', arch: 'grow', ai: 12, useLimit: 4, text: '永久 +1 点费用上限，抽 1 张牌', play: function (x) { x.manaCapUp(1); x.draw(1); } },
+    titanheart: { name: '泰坦之心', cost: 3, type: 'skill', rarity: 'rare', arch: 'grow', ai: 20, useLimit: 5, text: '永久 +10 点生命上限，+2 点力量', play: function (x) { x.maxHpUp(10); x.strength(2); } }
+  };
+
+  /* 构筑核心：六套流派各一个核心，决定本局走向（数值系数见 01 段 CONFIG） */
+  var CORES = {
+    bulwark: { name: '磐石反击', arch: 'bulwark', tag: '格挡反击流', desc: '回合开始保留七成格挡，并用留存格挡 20% 直接压制敌人；受击时按格挡反震并附带荆棘伤害' },
+    blood: { name: '嗜血战意', arch: 'blood', tag: '强攻吸血流', desc: '造成伤害回复 30% 生命（至少 1 点）；攻击牌额外 +2 伤害' },
+    control: { name: '蚀骨掌控', arch: 'control', tag: '控制流', desc: '敌人中毒不再逐回合递减；每回合开始按中毒层数换取格挡，叠毒期间不再一味挨打' },
+    engine: { name: '涌动循环', arch: 'engine', tag: '回费抽卡回血流', desc: '每回合额外 +1 费用；每打出 3 张牌回复 3 点生命' },
+    sacrifice: { name: '血契献祭', arch: 'sacrifice', tag: '血量上限消耗流', desc: '每消耗 1 点生命上限：按比例换取力量、生命与格挡；每波开始少量回补上限' },
+    dodge: { name: '疾影残像', arch: 'dodge', tag: '闪避反击流', desc: '定时获得闪避层（层数不设上限）；每回合最多闪避固定次数伤害，闪避成功后反击按敏捷、敌人上限与连击次数成长' }
+  };
+
+  var CORE_ORDER = ['bulwark', 'blood', 'control', 'engine', 'sacrifice', 'dodge'];
+
+  /* 每局随机抽取的流派核心数量：开局只展示这么多个，同局内不重复 */
+  var CORE_PICK_COUNT = 3;
+  /* 本局实际展示的候选核心（在 newRun 中重新抽取） */
+  var corePool = [];
 
   var ENEMY_NAMES = {
     normal: ['腐化游魂', '锈蚀守卫', '拾荒者', '磷火蛾', '碎骨犬', '灰烬行者', '空洞回响'],
@@ -199,7 +371,17 @@
     turn: 1,
     playedThisTurn: 0,
     carryMana: 0,
-    player: { hp: 0, maxHp: 0, block: 0, mana: 0, strength: 0, dexterity: 0, poison: 0, weak: 0, vulnerable: 0 },
+    player: {
+      hp: 0, maxHp: 0, block: 0, mana: 0, strength: 0, dexterity: 0,
+      poison: 0, weak: 0, vulnerable: 0,
+      /* 流派扩展状态：临时突破（本回合）、闪避/反震/吸血、永久成长、血祭累计 */
+      tempStrength: 0, tempDexterity: 0,
+      dodge: 0, dodgeStreak: 0, dodgeUsedThisTurn: 0, thorns: 0, reflectPct: 0, lifesteal: 0,
+      manaCapBonus: 0, hpSpent: 0
+    },
+    core: null,
+    skipManaPending: 0,
+    engineCounter: 0,
     enemy: null,
     deck: [],
     hand: [],
@@ -217,8 +399,11 @@
 
   function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
 
-  /* 费用上限：配置项 maxMana，最低 1 点 */
-  function manaCap() { return Math.max(1, Math.round(CONFIG.maxMana)); }
+  /* 费用上限：配置项 maxMana + 本局长期成长累加（魔力源泉 / 秘法之眼 / 超载核心），最低 1 点 */
+  function manaCap() {
+    var bonus = (S.player && S.player.manaCapBonus) ? S.player.manaCapBonus : 0;
+    return Math.max(1, Math.round(CONFIG.maxMana) + Math.round(bonus));
+  }
 
   /* 本回合基础费用：配置项 manaPerTurn，最低 0 点 */
   function manaBase() { return Math.max(0, Math.round(CONFIG.manaPerTurn)); }
@@ -324,6 +509,15 @@
     $('rg-draw').textContent = S.drawPile.length;
     $('rg-discard').textContent = S.discard.length;
     $('rg-decksize').textContent = S.deck.length;
+    var coreEl = $('rg-core-name');
+    if (coreEl) {
+      var core = (S.core && CORES[S.core]) ? CORES[S.core] : null;
+      coreEl.textContent = core ? core.name : '未选核心';
+      coreEl.title = core ? (core.tag + '：' + core.desc) : '本局未启用构筑核心';
+      coreEl.classList.toggle('is-on', !!core);
+    }
+    var skipEl = $('rg-skip');
+    if (skipEl) skipEl.textContent = Math.max(0, Math.round(S.skipManaPending));
   }
 
   function renderPlayer() {
@@ -338,6 +532,19 @@
     if (p.vulnerable > 0) tags.push(tag('易伤 ' + p.vulnerable, 'rg-tag--debuff'));
     if (p.weak > 0) tags.push(tag('虚弱 ' + p.weak, 'rg-tag--debuff'));
     if (p.poison > 0) tags.push(tag('中毒 ' + p.poison, 'rg-tag--buff'));
+    if (p.tempStrength > 0) tags.push(tag('临时力量 ' + p.tempStrength, 'rg-tag--buff'));
+    if (p.tempDexterity > 0) tags.push(tag('临时敏捷 ' + p.tempDexterity, 'rg-tag--buff'));
+    if (p.dodge > 0) {
+      var dodgeLeft = Math.max(1, Math.round(CONFIG.dodgePerRoundCap)) - (p.dodgeUsedThisTurn || 0);
+      tags.push(tag('闪避 ' + p.dodge + '（本轮 ' + Math.max(0, dodgeLeft) + '）', 'rg-tag--block'));
+    }
+    if (p.thorns > 0 || p.reflectPct > 0) {
+      tags.push(tag('反震 ' + Math.round(p.reflectPct * 100) + '%' + (p.thorns > 0 ? ' +' + p.thorns : ''), 'rg-tag--block'));
+    }
+    if (p.lifesteal > 0) tags.push(tag('吸血 ' + Math.round(p.lifesteal * 100) + '%', 'rg-tag--buff'));
+    if (p.maxHp > Math.round(CONFIG.playerHp) || p.manaCapBonus > 0) {
+      tags.push(tag('上限 ' + p.maxHp + 'HP / ' + manaCap() + '费', 'rg-tag--buff'));
+    }
     $('rg-player-tags').innerHTML = tags.join('');
   }
 
@@ -366,7 +573,15 @@
     if (!it) {
       iEl.textContent = '意图：待定';
     } else if (it.kind === 'attack') {
-      iEl.textContent = '意图：攻击 · 约 ' + incomingDamage() + ' 伤害';
+      var hits = intentHits(it);
+      if (hits > 1) {
+        var segs = intentSegmentDamage(it);
+        iEl.classList.add('is-multi');
+        iEl.textContent = '意图：攻击 ×' + hits + ' 段 · 每段约 ' + segs[0] +
+          '（合计 ' + incomingDamage() + ' 伤害）';
+      } else {
+        iEl.textContent = '意图：攻击 · 约 ' + incomingDamage() + ' 伤害';
+      }
     } else if (it.kind === 'defend') {
       iEl.classList.add('is-defend');
       iEl.textContent = '意图：防御 · +' + it.value + ' 格挡';
@@ -378,7 +593,10 @@
 
   function renderHand() {
     if (!handEl) return;
-    var sig = S.hand.join(',');
+    /* 签名纳入限量卡剩余次数：同名卡剩余次数变化时也要重绘 */
+    var sig = S.hand.join(',') + '#' + S.hand.map(function (id) {
+      return useLimitOf(CARDS[id]) > 0 ? useLeftOf(id) : '';
+    }).join(',');
     if (sig !== handSig) {
       handSig = sig;
       handEl.innerHTML = '';
@@ -386,8 +604,11 @@
         var c = CARDS[id];
         if (!c) return;
         var div = document.createElement('div');
-        div.className = 'rg-card rg-card--' + c.type + (c.rarity === 'rare' ? ' rg-card--rare' : '');
+        var lim = useLimitOf(c);
+        div.className = 'rg-card rg-card--' + c.type + (c.rarity === 'rare' ? ' rg-card--rare' : '') +
+          (lim > 0 ? ' rg-card--limited' : '');
         div.innerHTML = '<div class="rg-cost">' + c.cost + '</div>' +
+          (lim > 0 ? '<div class="rg-uses">剩 ' + useLeftOf(id) + ' 次</div>' : '') +
           '<div class="rg-cname">' + escapeHtml(c.name) + '</div>' +
           '<div class="rg-ctype">' + (TYPE_LABEL[c.type] || '') +
           (c.rarity !== 'basic' ? ' · ' + (RARITY_LABEL[c.rarity] || '') : '') + '</div>' +
@@ -437,7 +658,9 @@
       btn.disabled = !waiting;
     }
     if (!hint) return;
-    if (!playing) {
+    if (S.phase === 'core') {
+      hint.textContent = '先在弹窗里选一个构筑核心（决定本局流派），选完即开始第 1 波。';
+    } else if (!playing) {
       hint.textContent = '本局已结束。点「重开」或「重新开局」开始新的一局；出牌模式可在上方切换。';
     } else if (!manual) {
       hint.textContent = 'AI 挂机中：系统按费用自动出牌，你只需看战报。点上方的「手动出牌」可随时接管。';
@@ -453,17 +676,54 @@
 
   /* ======================== 07 伤害与效果结算 ======================== */
 
-  function incomingDamage() {
-    var it = S.enemy && S.enemy.intent;
+  /* 攻击段数：多段攻击按 segs 长度，单段攻击为 1 */
+  function intentHits(it) {
     if (!it || it.kind !== 'attack') return 0;
-    var d = it.value + (S.enemy.strength || 0);
-    if (S.enemy.weak > 0) d = Math.floor(d * CONFIG.weakMul);
-    if (S.player.vulnerable > 0) d = Math.floor(d * CONFIG.vulnerableMul);
-    return Math.max(0, Math.round(d));
+    if (it.segs && it.segs.length) return it.segs.length;
+    return Math.max(1, Math.round(it.hits || 1));
+  }
+
+  /* 第 i 段的基础伤害（未叠加力量与状态修正） */
+  function intentSegmentBase(it, i) {
+    if (it && it.segs && it.segs.length) return it.segs[Math.min(i, it.segs.length - 1)];
+    return (it && it.value) || 0;
+  }
+
+  /* 逐段伤害：力量按段均分，虚弱/蚀骨/易伤逐段结算，多段总量与单段口径基本一致 */
+  function intentSegmentDamage(it) {
+    var out = [];
+    var n = intentHits(it);
+    if (!n) return out;
+    var e = S.enemy || {};
+    var stPer = (e.strength || 0) / n;
+    for (var i = 0; i < n; i++) {
+      var d = intentSegmentBase(it, i) + stPer;
+      if (e.weak > 0) d = Math.floor(d * CONFIG.weakMul);
+      /* 蚀骨核心：中毒使敌人虚弱，按层数削减攻击力（控制流的主要减伤来源） */
+      if (S.core === 'control' && (e.poison || 0) > 0) {
+        d = Math.max(1, d - Math.floor((e.poison || 0) * CONFIG.poisonWeakAtk));
+      }
+      if (S.player.vulnerable > 0) d = Math.floor(d * CONFIG.vulnerableMul);
+      out.push(Math.max(0, Math.round(d)));
+    }
+    return out;
+  }
+
+  /* 本次攻击的合计伤害（HUD 意图与 AI 判定共用） */
+  function incomingDamage() {
+    var segs = intentSegmentDamage(S.enemy && S.enemy.intent);
+    var sum = 0;
+    for (var i = 0; i < segs.length; i++) sum += segs[i];
+    return sum;
   }
 
   function calcPlayerDamage(base) {
-    var dmg = base + S.player.strength;
+    /* 力量（含临时突破）+ 核心加成 */
+    var dmg = base + S.player.strength + (S.player.tempStrength || 0);
+    if (S.core === 'blood') {
+      dmg += CONFIG.bloodFlat + Math.round(S.enemy.maxHp * CONFIG.bloodHpDmg);
+    }
+    if (S.core === 'sacrifice') dmg += Math.round(S.player.maxHp * CONFIG.sacHpDmg);
     if (S.player.weak > 0) dmg = Math.floor(dmg * CONFIG.weakMul);
     if (S.enemy.vulnerable > 0) dmg = Math.floor(dmg * CONFIG.vulnerableMul);
     dmg = dmg - (S.enemy.armor || 0);
@@ -484,10 +744,33 @@
     log('敌人受到 ' + dmg + ' 点伤害（剩余 ' + S.enemy.hp + '）', 'dmg');
     floatText(enemyAvatar, '-' + dmg);
     shakeEnemy();
+    /* 吸血：按实际造成的伤害回复生命（嗜血战意核心 / 嗜血术叠加） */
+    var ls = (S.player.lifesteal || 0) + (S.core === 'blood' ? CONFIG.lifestealPct : 0);
+    if (ls > 0 && S.player.hp > 0) {
+      var steal = Math.max(1, Math.floor(dmg * ls));
+      steal = Math.min(steal, Math.max(1, Math.round(CONFIG.lifestealCap)));
+      healPlayer(steal);
+    }
     return dmg;
   }
 
-  function dealToPlayer(dmg) {
+  /* 统一的回复入口：卡牌 heal、血祭回报、吸血、核心循环都走这里 */
+  function healPlayer(n) {
+    n = Math.max(0, Math.round(n));
+    if (n <= 0) return 0;
+    var before = S.player.hp;
+    S.player.hp = Math.min(S.player.maxHp, S.player.hp + n);
+    var real = S.player.hp - before;
+    if (real > 0) {
+      log('回复 ' + real + ' 点生命（当前 ' + S.player.hp + '）', 'win');
+      floatText(playerAvatar, '+' + real, 'is-heal');
+    } else {
+      log('生命已满，回复无效', 'mute');
+    }
+    return real;
+  }
+
+  function dealToPlayer(dmg, segInfo) {
     if (dmg <= 0) return 0;
     var absorbed = Math.min(S.player.block || 0, dmg);
     if (absorbed > 0) {
@@ -501,6 +784,36 @@
     S.stats.damageTaken += dmg;
     log('你受到 ' + dmg + ' 点伤害（剩余 ' + S.player.hp + '）', 'dmg');
     floatText(playerAvatar, '-' + dmg);
+    /* 荆棘 + 反震：按受到的实际伤害回敬敌人（格挡反击流的主要输出） */
+    var reflect = (S.player.reflectPct || 0) + (S.core === 'bulwark' ? CONFIG.reflectMul : 0);
+    /* 多段攻击逐段结算：固定荆棘按段均分，避免总反伤被打段数放大 */
+    var segN = (segInfo && segInfo.count > 1) ? segInfo.count : 1;
+    var back = Math.max(0, Math.round((S.player.thorns || 0) / segN)) +
+      Math.floor(dmg * reflect);
+    /* 磐石核心：反震附带敌人生命上限比例伤害，避免反震流被敌人生命指数成长卡死 */
+    if (S.core === 'bulwark') back += Math.round(S.enemy.maxHp * CONFIG.bulwarkHpReflect / segN);
+    if (back > 0 && S.enemy.hp > 0) {
+      log('荆棘反震：回敬 ' + back + ' 点伤害', 'block');
+      directEnemyDamage(back);
+    }
+    return dmg;
+  }
+
+  /* 不经力量/易伤等修正的直接伤害（反击、荆棘、反震用） */
+  function directEnemyDamage(n) {
+    var dmg = Math.max(0, Math.round(n));
+    if (dmg <= 0 || S.enemy.hp <= 0) return 0;
+    var absorbed = Math.min(S.enemy.block || 0, dmg);
+    if (absorbed > 0) {
+      S.enemy.block -= absorbed;
+      dmg -= absorbed;
+    }
+    if (dmg <= 0) return 0;
+    S.enemy.hp = Math.max(0, S.enemy.hp - dmg);
+    S.stats.damageDealt += dmg;
+    log('敌人受到 ' + dmg + ' 点伤害（剩余 ' + S.enemy.hp + '）', 'dmg');
+    floatText(enemyAvatar, '-' + dmg);
+    shakeEnemy();
     return dmg;
   }
 
@@ -510,7 +823,7 @@
         return dealToEnemy(calcPlayerDamage(base));
       },
       block: function (n) {
-        var b = Math.max(0, Math.round(n + S.player.dexterity));
+        var b = Math.max(0, Math.round(n + S.player.dexterity + (S.player.tempDexterity || 0)));
         if (b <= 0) return 0;
         S.player.block += b;
         log('获得 ' + b + ' 点格挡', 'block');
@@ -518,16 +831,7 @@
         return b;
       },
       heal: function (n) {
-        var before = S.player.hp;
-        S.player.hp = Math.min(S.player.maxHp, S.player.hp + n);
-        var real = S.player.hp - before;
-        if (real > 0) {
-          log('回复 ' + real + ' 点生命（当前 ' + S.player.hp + '）', 'win');
-          floatText(playerAvatar, '+' + real, 'is-heal');
-        } else {
-          log('生命已满，回复无效', 'mute');
-        }
-        return real;
+        return healPlayer(n);
       },
       strength: function (n) {
         S.player.strength += n;
@@ -540,17 +844,21 @@
         floatText(playerAvatar, '敏捷+' + n, 'is-buff');
       },
       poison: function (n) {
-        S.enemy.poison += n;
-        log('敌人中毒 +' + n, 'buff');
-        floatText(enemyAvatar, '中毒+' + n, 'is-buff');
+        var add = n + (S.core === 'control' ? Math.round(CONFIG.poisonBonus) : 0);
+        S.enemy.poison += add;
+        log('敌人中毒 +' + add, 'buff');
+        floatText(enemyAvatar, '中毒+' + add, 'is-buff');
+        return add;
       },
       vulnerable: function (n) {
         S.enemy.vulnerable += n;
         log('敌人易伤 +' + n, 'buff');
       },
       weak: function (n) {
-        S.enemy.weak += n;
-        log('敌人虚弱 +' + n, 'buff');
+        var add = n + (S.core === 'control' ? Math.round(CONFIG.weakBonus) : 0);
+        S.enemy.weak += add;
+        log('敌人虚弱 +' + add, 'buff');
+        return add;
       },
       draw: function (n) {
         var got = drawCards(n);
@@ -567,6 +875,96 @@
         S.player.hp = Math.max(0, S.player.hp - n);
         log('自损 ' + n + ' 点生命', 'dmg');
         floatText(playerAvatar, '-' + n);
+      },
+      /* —— 单轮临时突破：本回合有效，回合结束清零 —— */
+      tempStrength: function (n) {
+        S.player.tempStrength += n;
+        log('本回合获得 ' + n + ' 点力量（回合结束消失）', 'buff');
+        floatText(playerAvatar, '力量+' + n, 'is-buff');
+        renderPlayer();
+      },
+      tempDexterity: function (n) {
+        S.player.tempDexterity += n;
+        log('本回合获得 ' + n + ' 点敏捷（回合结束消失）', 'buff');
+        floatText(playerAvatar, '敏捷+' + n, 'is-buff');
+        renderPlayer();
+      },
+      manaBurst: function (n) {
+        /* 临时费用突破：可超出费用上限，仅本回合有效 */
+        S.player.mana += Math.max(0, Math.round(n));
+        log('本回合费用 +' + n + '（可超出上限 ' + manaCap() + '）', 'buff');
+        renderHud();
+      },
+      /* —— 闪避 / 反震 / 吸血 —— */
+      dodge: function (n) {
+        S.player.dodge = Math.max(0, S.player.dodge + Math.max(0, Math.round(n)));
+        log('获得 ' + n + ' 层闪避（当前 ' + S.player.dodge + ' 层）', 'block');
+        floatText(playerAvatar, '闪避+' + n, 'is-block');
+        renderPlayer();
+      },
+      thorns: function (n) {
+        S.player.thorns += Math.max(0, Math.round(n));
+        log('获得 ' + n + ' 点荆棘（当前 ' + S.player.thorns + '）', 'block');
+        renderPlayer();
+      },
+      reflect: function (pct) {
+        S.player.reflectPct += pct;
+        log('反震比例 +' + Math.round(pct * 100) + '%（当前 ' + Math.round(S.player.reflectPct * 100) + '%）', 'block');
+        renderPlayer();
+      },
+      lifesteal: function (pct) {
+        S.player.lifesteal += pct;
+        log('吸血 +' + Math.round(pct * 100) + '%（当前 ' + Math.round(S.player.lifesteal * 100) + '%）', 'buff');
+        renderPlayer();
+      },
+      stripBlock: function () {
+        var b = S.enemy.block || 0;
+        S.enemy.block = 0;
+        log('清空敌人 ' + b + ' 点格挡', 'block');
+        renderEnemy();
+      },
+      /* —— 长期成长：永久提升上限 —— */
+      maxHpUp: function (n) {
+        var add = Math.max(0, Math.round(n));
+        S.player.maxHp += add;
+        log('生命上限 +' + add + '（当前 ' + S.player.maxHp + '）', 'win');
+        floatText(playerAvatar, '上限+' + add, 'is-heal');
+        renderPlayer();
+      },
+      manaCapUp: function (n) {
+        S.player.manaCapBonus += Math.max(0, Math.round(n));
+        log('费用上限 +' + n + '（当前 ' + manaCap() + '）', 'win');
+        renderHud();
+      },
+      /* —— 血量上限消耗：返回实际消耗量，供卡牌判断是否继续结算 —— */
+      spendMaxHp: function (n) {
+        var want = Math.max(0, Math.round(n));
+        var real = Math.min(want, Math.max(0, S.player.maxHp - 1));
+        if (real <= 0) {
+          log('生命上限已见底，无法献祭', 'mute');
+          return 0;
+        }
+        S.player.maxHp -= real;
+        if (S.player.hp > S.player.maxHp) S.player.hp = S.player.maxHp;
+        S.player.hpSpent += real;
+        log('消耗 ' + real + ' 点生命上限（剩余上限 ' + S.player.maxHp + '）', 'dmg');
+        floatText(playerAvatar, '上限-' + real);
+        if (S.core === 'sacrifice') {
+          var gain = Math.max(0, Math.round(real * CONFIG.sacStrengthPerHp));
+          if (gain > 0) {
+            S.player.strength += gain;
+            log('血契：力量 +' + gain, 'buff');
+          }
+          var back = Math.max(0, Math.round(real * CONFIG.sacHealPerHp));
+          if (back > 0) healPlayer(back);
+          var shield = Math.max(0, Math.round(real * CONFIG.sacBlockPerHp));
+          if (shield > 0) {
+            S.player.block += shield;
+            log('血盾：格挡 +' + shield, 'buff');
+          }
+        }
+        renderPlayer();
+        return real;
       }
     };
   }
@@ -635,26 +1033,90 @@
     S.turn = 1;
     S.playedThisTurn = 0;
     S.carryMana = 0;
+    S.core = null;
+    S.skipManaPending = 0;
+    S.engineCounter = 0;
     S.player = {
       hp: Math.round(CONFIG.playerHp), maxHp: Math.round(CONFIG.playerHp), block: 0,
       mana: Math.min(manaCap(), manaBase()), strength: 0, dexterity: 0,
-      poison: 0, weak: 0, vulnerable: 0
+      poison: 0, weak: 0, vulnerable: 0,
+      tempStrength: 0, tempDexterity: 0,
+      dodge: 0, dodgeStreak: 0, dodgeUsedThisTurn: 0, thorns: 0, reflectPct: 0, lifesteal: 0,
+      manaCapBonus: 0, hpSpent: 0
     };
+    /* 限量卡剩余次数与本局已移除的限量卡，每局重置 */
+    S.useLeft = {};
+    S.exhausted = [];
     S.deck = buildStartDeck();
+    S.deck.forEach(function (id) { initUses(id); });
     S.hand = [];
     S.drawPile = [];
     S.discard = [];
     S.priority = {};
     S.reward = [];
-    S.stats = { cardsPlayed: 0, damageDealt: 0, damageTaken: 0, waves: 0, turns: 0 };
+    S.stats = { cardsPlayed: 0, damageDealt: 0, damageTaken: 0, waves: 0, turns: 0, exhausted: 0 };
     handSig = '';
     $('rg-pausemask').hidden = true;
     hideModal('rg-reward');
     hideModal('rg-over');
     hideModal('rg-deck');
+    hideModal('rg-core');
     clearLog();
     log('新的一局开始：初始卡组 ' + S.deck.length + ' 张，生命 ' + S.player.maxHp, 'win');
+    /* 构筑核心：choose 手动选 / random 随机 / none 不启用（见 01 段配置） */
+    /* 每局开局重新抽取候选核心，同一局内不重复；重开一局即重新随机 */
+    corePool = shuffle(CORE_ORDER.slice()).slice(0, Math.min(CORE_PICK_COUNT, CORE_ORDER.length));
+    if (CONFIG.coreMode === 'random') {
+      setCore(pick(CORE_ORDER.slice()));
+      startWave();
+    } else if (CONFIG.coreMode === 'none') {
+      log('未启用构筑核心，自由构筑', 'mute');
+      startWave();
+    } else {
+      S.phase = 'core';
+      renderAll();
+      renderCorePick();
+      showModal('rg-core');
+    }
+  }
+
+  /* 设定本局构筑核心（null = 不使用核心） */
+  function setCore(key) {
+    S.core = (key && CORES[key]) ? key : null;
+    var core = S.core ? CORES[S.core] : null;
+    if (core) log('构筑核心：' + core.name + ' · ' + core.tag + '（' + core.desc + '）', 'win');
+    renderHud();
+  }
+
+  function pickCore(key) {
+    if (S.phase !== 'core') return;
+    setCore(key);
+    hideModal('rg-core');
+    S.phase = 'battle';
     startWave();
+  }
+
+  function renderCorePick() {
+    var grid = $('rg-core-grid');
+    if (!grid) return;
+    /* 兜底：若本局候选池尚未生成（异常路径），现抽一次并固定在本局 */
+    if (!corePool.length) {
+      corePool = shuffle(CORE_ORDER.slice()).slice(0, Math.min(CORE_PICK_COUNT, CORE_ORDER.length));
+    }
+    grid.innerHTML = '';
+    corePool.forEach(function (key) {
+      var c = CORES[key];
+      if (!c) return;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'rg-core-card';
+      btn.setAttribute('data-core', key);
+      btn.innerHTML = '<div class="rg-core-name">' + escapeHtml(c.name) + '</div>' +
+        '<div class="rg-core-tag">' + escapeHtml(c.tag) + '</div>' +
+        '<div class="rg-core-desc">' + escapeHtml(c.desc) + '</div>';
+      btn.addEventListener('click', function () { pickCore(key); });
+      grid.appendChild(btn);
+    });
   }
 
   function startWave() {
@@ -671,6 +1133,26 @@
     S.player.poison = 0;
     S.player.weak = 0;
     S.player.vulnerable = 0;
+    /* 流派状态的战斗内部分每波清零；长期成长（生命上限/费用上限/吸血）跨波保留 */
+    S.player.tempStrength = 0;
+    S.player.tempDexterity = 0;
+    S.player.dodge = 0;
+    S.player.dodgeUsedThisTurn = 0;
+    S.player.dodgeStreak = 0;
+    S.player.thorns = 0;
+    S.player.reflectPct = 0;
+    /* 磐石核心：每波开局自带基础荆棘，格挡反击流不依赖起手摸到荆棘牌 */
+    if (S.core === 'bulwark') S.player.thorns += Math.round(CONFIG.coreThorns);
+    /* 血祭核心：每波开始回补一部分被献祭的生命上限，避免上限被抽干后整局失能 */
+    if (S.core === 'sacrifice' && CONFIG.sacWaveMaxHp > 0) {
+      var rebate = Math.max(0, Math.round(CONFIG.sacWaveMaxHp));
+      if (rebate > 0) {
+        S.player.maxHp += rebate;
+        S.player.hp = Math.min(S.player.maxHp, S.player.hp + rebate);
+        log('血契回补：生命上限 +' + rebate + '（当前 ' + S.player.maxHp + '）', 'win');
+      }
+    }
+    S.engineCounter = 0;
     /* 新一波战斗：上回合结转费用清零，首回合费用 = 基础费用（不超过上限） */
     S.carryMana = 0;
     S.player.mana = Math.min(manaCap(), manaBase());
@@ -689,7 +1171,8 @@
     var hp = Math.round((CONFIG.enemyHpBase + CONFIG.enemyHpGrow * (wave - 1)) *
       Math.pow(CONFIG.enemyHpMul, wave - 1) * mul);
     hp = Math.max(5, hp);
-    var atk = Math.round((CONFIG.enemyAtkBase + CONFIG.enemyAtkGrow * (wave - 1)) * mul * 0.82);
+    var atk = Math.round((CONFIG.enemyAtkBase + CONFIG.enemyAtkGrow * (wave - 1)) *
+      Math.pow(CONFIG.enemyAtkMul, wave - 1) * mul * 0.82);
     atk = Math.max(1, atk);
     var pool = isBoss ? ENEMY_NAMES.boss : (isElite ? ENEMY_NAMES.elite : ENEMY_NAMES.normal);
     return {
@@ -709,16 +1192,43 @@
     };
   }
 
+  /* 多段攻击段数：达到起始波次后按概率拆分，首领可满段、精英最多 3 段、普通敌人最多 2 段 */
+  function rollAttackHits() {
+    var maxHits = Math.max(1, Math.round(CONFIG.multiHitMax));
+    var startWave = Math.max(1, Math.round(CONFIG.multiHitStart));
+    var chance = Number(CONFIG.multiHitChance);
+    if (maxHits < 2 || !(chance > 0) || !(S.wave >= startWave)) return 1;
+    if (Math.random() >= chance) return 1;
+    var e = S.enemy || {};
+    var cap = maxHits;
+    if (!e.isBoss) cap = Math.min(cap, e.isElite ? 3 : 2);
+    return Math.max(2, cap);
+  }
+
+  /* 生成攻击意图：多段时按总量逐段递增分配，每段略低于原单段伤害 */
+  function makeAttackIntent(base) {
+    var hits = rollAttackHits();
+    if (hits <= 1) return { kind: 'attack', value: base, hits: 1 };
+    var mul = Number(CONFIG.multiHitTotalMul);
+    if (!(mul > 0)) mul = 1;
+    var total = Math.max(hits, Math.round(base * mul));
+    var per = Math.floor(total / hits);
+    var rest = total - per * hits;
+    var segs = [];
+    for (var i = 0; i < hits; i++) segs.push(per + (i >= hits - rest ? 1 : 0));
+    return { kind: 'attack', value: segs[0], hits: hits, segs: segs };
+  }
+
   function rollIntent() {
     var e = S.enemy;
     var base = Math.max(1, Math.round(e.atk * (0.85 + Math.random() * 0.35)));
     var r = Math.random();
     if (e.isBoss) {
-      if (r < 0.66) return { kind: 'attack', value: base };
+      if (r < 0.66) return makeAttackIntent(base);
       if (r < 0.84) return { kind: 'charge', value: 2 };
       return { kind: 'defend', value: Math.max(4, Math.round(e.maxHp * 0.08)) };
     }
-    if (r < 0.7) return { kind: 'attack', value: base };
+    if (r < 0.7) return makeAttackIntent(base);
     if (r < 0.86) return { kind: 'defend', value: Math.max(3, Math.round(e.atk * 0.9)) };
     return { kind: 'charge', value: 1 };
   }
@@ -740,18 +1250,58 @@
   }
 
   function doTurnStart() {
-    if (CONFIG.blockDecay) S.player.block = 0;
+    /* 格挡衰减：磐石反击流保留一半格挡，其余流派清零 */
+    if (CONFIG.blockDecay) {
+      S.player.block = (S.core === 'bulwark') ? Math.floor(S.player.block * CONFIG.bulwarkKeep) : 0;
+    }
+    /* 磐石压制：回合开始用留存格挡直接冲击敌人，把格挡转成实伤（格挡反击流的主动输出手段） */
+    if (S.core === 'bulwark' && CONFIG.bulwarkTempoPct > 0 && S.player.block > 0 && S.enemy.hp > 0) {
+      var tempo = Math.round(S.player.block * CONFIG.bulwarkTempoPct);
+      if (tempo > 0) {
+        log('磐石压制：以 ' + tempo + ' 点格挡化作冲击', 'block');
+        directEnemyDamage(tempo);
+      }
+    }
+    /* 蚀骨掌控：回合开始按敌人中毒层数换取格挡，缓解叠毒期间的暴毙风险 */
+    if (S.core === 'control' && CONFIG.poisonBlockPct > 0 && S.enemy.poison > 0) {
+      var pshield = Math.round(S.enemy.poison * CONFIG.poisonBlockPct);
+      var pcap = Math.round(S.enemy.maxHp * CONFIG.poisonBlockCap);
+      if (pcap > 0) pshield = Math.min(pshield, pcap);
+      if (pshield > 0) {
+        S.player.block += pshield;
+        log('毒雾护体：中毒层数换取 ' + pshield + ' 点格挡', 'block');
+      }
+    }
+    /* 疾影残像：每回合开始自动获得闪避层（层数不设上限，仅限制每回合可闪避次数） */
+    S.player.dodgeUsedThisTurn = 0;
+    if (S.core === 'dodge' && CONFIG.dodgePerTurn > 0) {
+      var every = Math.max(1, Math.round(CONFIG.dodgeEvery));
+      if ((Math.max(1, S.turn) - 1) % every === 0) {
+        var gainD = Math.round(CONFIG.dodgePerTurn);
+        var roundCapD = Math.max(1, Math.round(CONFIG.dodgePerRoundCap));
+        S.player.dodge += gainD;
+        log('疾影：闪避 +' + gainD + '（当前 ' + S.player.dodge + ' 层，本回合可闪避 ' + roundCapD + ' 次）', 'block');
+      }
+    }
     /* 回合开始费用 = 本回合基础费用 + 上回合结束时的剩余费用，累加后不超过费用上限（溢出上限部分丢弃） */
     var cap = manaCap();
     var base = manaBase();
+    if (S.core === 'engine') base += Math.round(CONFIG.engineMana);
     var carry = Math.max(0, Math.round(S.carryMana));
     S.player.mana = Math.min(cap, base + carry);
-    var carried = Math.min(carry, Math.max(0, S.player.mana - base));
+    var carried = Math.min(carry, Math.max(0, S.player.mana - manaBase()));
     S.carryMana = 0;
+    /* 跳过奖励的补偿：额外恢复费用，可突破费用上限 */
+    var skipBonus = Math.max(0, Math.round(S.skipManaPending));
+    if (skipBonus > 0) {
+      S.player.mana += skipBonus;
+      S.skipManaPending = 0;
+      log('跳过奖励补偿：本回合额外 +' + skipBonus + ' 费用', 'win');
+    }
     S.playedThisTurn = 0;
     var got = drawCards(Math.round(CONFIG.handSize));
     S.stats.turns++;
-    log('—— 第 ' + S.turn + ' 回合 · 费用 ' + S.player.mana + ' / ' + cap + (carried > 0 ? ' · 结转 +' + carried : '') + ' · 抽 ' + got + ' 张 ——', 'turn');
+    log('—— 第 ' + S.turn + ' 回合 · 费用 ' + S.player.mana + ' / ' + cap + (carried > 0 ? ' · 结转 +' + carried : '') + (skipBonus > 0 ? ' · 跳过补偿 +' + skipBonus : '') + ' · 抽 ' + got + ' 张 ——', 'turn');
     if (S.enemy.hp <= 0) { renderAll(); victory(); return; }
     /* 先切到出牌阶段再渲染，保证手动模式下 UI 立即进入「等待玩家出牌」状态 */
     S.sub = 'play';
@@ -785,13 +1335,36 @@
     var c = CARDS[id];
     var e = S.enemy;
     var v = c.ai || 6;
+    /* 血祭类卡：生命上限见底时停止自伤，血契核心下优先打出 */
+    if (c.sac) {
+      if (S.player.maxHp <= c.sac + 3) v = 0.5;
+      else if (S.player.maxHp <= 24) v -= 10;
+      if (S.core === 'sacrifice') v += 6;
+    }
+    /* 血爆：伤害与格挡都取决于本局已消耗的生命上限 */
+    if (id === 'bloodnova' && S.player.hpSpent <= 0) v = 0.5;
+    if (id === 'bloodnova') v = Math.min(30, Math.max(v, 4 + S.player.hpSpent));
+    if (S.core === 'engine' && c.cost === 0) v += 4;
     if (c.type === 'attack') {
-      var predict = v + S.player.strength;
+      var predict = v + S.player.strength + (S.player.tempStrength || 0);
       if (predict >= e.hp + (e.block || 0)) v += 140;
     } else if (c.type === 'defense') {
       var need = incomingDamage() - S.player.block;
-      if (need > 0) v += Math.min(v, need) * 0.7 + 6;
-      else v -= 8;
+      /* 格挡能留存（磐石反击）或血量告急时仍值得堆，否则纯堆盾价值大幅缩水 */
+      var keepWorth = (S.core === 'bulwark') || (S.player.hp < S.player.maxHp * 0.35);
+      if (need > 0) {
+        v += Math.min(v, need) * 0.7 + 6;
+      } else if (c.pureBlock) {
+        /* 已有格挡已覆盖敌方本次攻击总伤害：纯格挡卡默认不出。
+           唯一例外：磐石反击流的格挡可跨回合留存，在血量健康（≥60%）且出牌后仍富余 1 费时保留少量价值 */
+        var surplus = S.player.mana - c.cost >= 1;
+        var healthy = S.player.hp >= S.player.maxHp * 0.6;
+        var attackNow = !!(e.intent && e.intent.kind === 'attack');
+        v = (S.core === 'bulwark' && healthy && surplus && attackNow) ? 1.5 : -1;
+      } else {
+        /* 附带其它效果（伤害/抽牌/回血/敏捷/闪避/生命上限等）的格挡卡仍有价值，仅小幅下调 */
+        v = keepWorth ? v : v * 0.7;
+      }
     } else if (c.heal) {
       var missing = S.player.maxHp - S.player.hp;
       if (missing <= 0) v = 0.5;
@@ -812,9 +1385,56 @@
       var c = CARDS[id];
       if (!c || c.cost > S.player.mana) continue;
       var sc = scoreCard(id);
+      /* 评分不为正说明当前打出没有实际收益（格挡已溢出、满血治疗等），宁可留着 */
+      if (sc <= 0) continue;
       if (sc > bestScore) { bestScore = sc; best = i; }
     }
     return best;
+  }
+
+  /* 限量卡：useLimit 为空表示可无限循环使用，有值时从本局开局按满次数计 */
+  function useLimitOf(card) {
+    var lim = card ? Math.round(card.useLimit || 0) : 0;
+    return lim > 0 ? lim : 0;
+  }
+
+  function useLeftOf(id) {
+    var lim = useLimitOf(CARDS[id]);
+    if (!lim) return Infinity;
+    var left = S.useLeft ? S.useLeft[id] : undefined;
+    if (typeof left !== 'number' || left > lim) return lim;
+    return left;
+  }
+
+  function initUses(id) {
+    var lim = useLimitOf(CARDS[id]);
+    if (!lim) return;
+    if (!S.useLeft) S.useLeft = {};
+    if (typeof S.useLeft[id] !== 'number' || S.useLeft[id] > lim) S.useLeft[id] = lim;
+  }
+
+  /* 次数用尽：把该卡从本局卡组（牌库/手牌/弃牌堆/卡组）全部永久移除 */
+  function exhaustCard(id) {
+    var name = (CARDS[id] && CARDS[id].name) || id;
+    var removed = 0;
+    function strip(arr) {
+      var out = [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i] === id) removed++;
+        else out.push(arr[i]);
+      }
+      return out;
+    }
+    S.deck = strip(S.deck || []);
+    S.drawPile = strip(S.drawPile || []);
+    S.discard = strip(S.discard || []);
+    S.hand = strip(S.hand || []);
+    if (S.useLeft) delete S.useLeft[id];
+    S.stats.exhausted = (S.stats.exhausted || 0) + 1;
+    if (S.exhausted && S.exhausted.indexOf(id) < 0) S.exhausted.push(id);
+    handSig = '';
+    log('「' + name + '」使用次数已用尽，从本局卡组永久移除' +
+      (removed > 0 ? '（同名牌 ' + removed + ' 张）' : ''), 'bad');
   }
 
   function playCardAt(idx) {
@@ -833,7 +1453,26 @@
     flyCard(cardEl, id);
     log('打出「' + card.name + '」（' + card.cost + ' 费）', 'play');
     card.play(makeCtx());
-    S.discard.push(id);
+    /* 限量卡：扣一次使用次数，用满即永久移出本局卡组；普通卡照旧回弃牌堆 */
+    var lim = useLimitOf(card);
+    if (lim > 0) {
+      initUses(id);
+      S.useLeft[id] = Math.max(0, useLeftOf(id) - 1);
+      if (S.useLeft[id] > 0) {
+        log('「' + card.name + '」剩余使用次数 ' + S.useLeft[id] + ' / ' + lim);
+      }
+    }
+    if (lim > 0 && (S.useLeft[id] || 0) <= 0) exhaustCard(id);
+    else S.discard.push(id);
+    /* 涌动循环核心：每打出 N 张牌回复生命（回费抽卡回血流的续航来源） */
+    if (S.core === 'engine') {
+      S.engineCounter++;
+      var every = Math.max(1, Math.round(CONFIG.engineCards));
+      if (S.engineCounter % every === 0) {
+        var eh = Math.max(0, Math.round(CONFIG.engineHeal));
+        if (eh > 0 && S.player.hp > 0) healPlayer(eh);
+      }
+    }
     renderAll();
   }
 
@@ -905,12 +1544,41 @@
     e.block = 0;
     var it = e.intent || rollIntent();
     if (it.kind === 'attack') {
-      var dmg = it.value + (e.strength || 0);
-      if (e.weak > 0) dmg = Math.floor(dmg * CONFIG.weakMul);
-      if (S.player.vulnerable > 0) dmg = Math.floor(dmg * CONFIG.vulnerableMul);
-      dmg = Math.max(0, Math.round(dmg));
-      log('「' + e.name + '」发动攻击：' + dmg + ' 点伤害', 'enemy');
-      dealToPlayer(dmg);
+      var segs = intentSegmentDamage(it);
+      var total = 0;
+      var si;
+      for (si = 0; si < segs.length; si++) total += segs[si];
+      if (segs.length > 1) {
+        log('「' + e.name + '」发动 ' + segs.length + ' 段攻击：每段约 ' + segs[0] +
+          ' 点（合计 ' + total + ' 伤害）', 'enemy');
+      } else {
+        log('「' + e.name + '」发动攻击：' + total + ' 点伤害', 'enemy');
+      }
+      /* 逐段结算：每回合最多闪避 roundCap 次，每段消耗一层；超过次数则本回合剩余段数无法闪避 */
+      var roundDodgeCap = Math.max(1, Math.round(CONFIG.dodgePerRoundCap));
+      for (si = 0; si < segs.length; si++) {
+        if (S.player.hp <= 0) break;
+        if (S.player.dodge > 0 && (S.player.dodgeUsedThisTurn || 0) < roundDodgeCap) {
+          S.player.dodge--;
+          S.player.dodgeUsedThisTurn = (S.player.dodgeUsedThisTurn || 0) + 1;
+          log('闪避成功！躲开第 ' + (si + 1) + '/' + segs.length +
+            ' 段攻击（剩余 ' + S.player.dodge + ' 层，本回合第 ' + S.player.dodgeUsedThisTurn + '/' + roundDodgeCap + ' 次）', 'win');
+          floatText(playerAvatar, '闪避', 'is-block');
+          if (S.core === 'dodge') {
+            /* 疾影反击：闪避成功可连续累加，越闪越痛（本波内累计，换波重置） */
+            S.player.dodgeStreak = (S.player.dodgeStreak || 0) + 1;
+            var streakAdd = Math.min(CONFIG.dodgeStreakCap, Math.max(0, S.player.dodgeStreak - 1) * CONFIG.dodgeStreakBonus);
+            var counter = Math.round(CONFIG.dodgeCounter + CONFIG.dodgeCounterDex * S.player.dexterity +
+              e.maxHp * CONFIG.dodgeCounterHpPct + streakAdd);
+            if (counter > 0) {
+              log('疾影反击：对「' + e.name + '」造成 ' + counter + ' 点伤害（连击 ' + S.player.dodgeStreak + '）', 'dmg');
+              directEnemyDamage(counter);
+            }
+          }
+        } else {
+          dealToPlayer(segs[si], { index: si, count: segs.length });
+        }
+      }
       if (Math.random() < 0.12 && S.player.hp > 0) {
         S.player.vulnerable += 1;
         log('你被施加 1 层易伤', 'enemy');
@@ -941,10 +1609,14 @@
     }
     if (S.enemy.hp > 0 && S.enemy.poison > 0) {
       var ep = S.enemy.poison;
+      if (S.core === 'control') {
+        ep = Math.round(ep * CONFIG.poisonTickMul) + Math.round(S.enemy.maxHp * CONFIG.poisonHpPct);
+      }
       S.enemy.hp = Math.max(0, S.enemy.hp - ep);
       log('敌人中毒发作：受到 ' + ep + ' 点伤害（剩余 ' + S.enemy.hp + '）', 'dmg');
       floatText(enemyAvatar, '-' + ep);
-      if (CONFIG.poisonDecay) S.enemy.poison = Math.max(0, ep - 1);
+      /* 蚀骨控制流：中毒层数不衰减，持续堆积 */
+      if (CONFIG.poisonDecay && S.core !== 'control') S.enemy.poison = Math.max(0, ep - 1);
     }
     if (S.hand.length) {
       S.discard = S.discard.concat(S.hand);
@@ -954,6 +1626,12 @@
     if (S.player.vulnerable > 0) S.player.vulnerable--;
     if (S.enemy.weak > 0) S.enemy.weak--;
     if (S.enemy.vulnerable > 0) S.enemy.vulnerable--;
+    /* 单轮临时突破到期：临时力量/敏捷清零（费用突破本身随费用清零自然失效） */
+    if (S.player.tempStrength || S.player.tempDexterity) {
+      log('临时突破结束：力量 -' + S.player.tempStrength + '、敏捷 -' + S.player.tempDexterity, 'mute');
+      S.player.tempStrength = 0;
+      S.player.tempDexterity = 0;
+    }
     /* 回合结束：剩余费用结转到下一回合（手动点「结束回合」与 AI 出牌结束都走这里，逻辑统一） */
     var leftMana = Math.max(0, Math.round(S.player.mana));
     S.carryMana = Math.min(manaCap(), leftMana);
@@ -996,7 +1674,11 @@
       '通过波次 <b>' + st.waves + '</b><br>' +
       '打出卡牌 <b>' + st.cardsPlayed + '</b> 张 · 经历回合 <b>' + st.turns + '</b><br>' +
       '累计造成伤害 <b>' + st.damageDealt + '</b> · 承受伤害 <b>' + st.damageTaken + '</b><br>' +
-      '最终卡组 <b>' + S.deck.length + '</b> 张';
+      '最终卡组 <b>' + S.deck.length + '</b> 张' +
+      ((S.exhausted || []).length > 0
+        ? '<br>次数用尽移除 <b>' + S.exhausted.length + '</b> 张（' +
+          S.exhausted.map(function (k) { return (CARDS[k] && CARDS[k].name) || k; }).join('、') + '）'
+        : '');
     showModal('rg-over');
   }
 
@@ -1013,12 +1695,35 @@
     return pick(pool);
   }
 
+  /* 本局核心对应的流派标签（未选核心时为 null） */
+  function coreArch() {
+    return (S.core && CORES[S.core]) ? CORES[S.core].arch : null;
+  }
+
+  /* 流派契合卡池：核心流派 + 通用成长 + 单轮临时突破 */
+  function rollCoreCard(arch) {
+    var pool = Object.keys(CARDS).filter(function (k) {
+      var a = CARDS[k].arch;
+      return a === arch || a === 'grow' || a === 'temp';
+    });
+    return pool.length ? pick(pool) : null;
+  }
+
   function buildReward() {
     var picks = [];
     var need = clamp(Math.round(CONFIG.rewardChoices), 1, 6);
+    var arch = coreArch();
+    var w = clamp(Number(CONFIG.coreCardWeight) || 0, 0, 10) / 10;
     var guard = 0;
+    /* 核心契合卡先固定占一席，保证流派能成型 */
+    if (arch && w > 0) {
+      var first = rollCoreCard(arch);
+      if (first) picks.push(first);
+    }
     while (picks.length < need && guard++ < 300) {
-      var id = rollRewardCard();
+      var id = null;
+      if (arch && w > 0 && Math.random() < w) id = rollCoreCard(arch);
+      else id = rollRewardCard();
       if (!id || picks.indexOf(id) >= 0) continue;
       picks.push(id);
     }
@@ -1036,13 +1741,33 @@
       btn.className = 'rg-reward-card rg-card--' + c.type;
       btn.style.animationDelay = (i * 45) + 'ms';
       btn.innerHTML = '<div class="rg-cost">' + c.cost + '</div>' +
-        '<div class="rg-rarity">' + (RARITY_LABEL[c.rarity] || '') + '</div>' +
+        '<div class="rg-rarity">' + (RARITY_LABEL[c.rarity] || '') +
+        (ARCH_LABEL[c.arch] ? ' · ' + ARCH_LABEL[c.arch] : '') + '</div>' +
         '<div class="rg-cname">' + escapeHtml(c.name) + '</div>' +
-        '<div class="rg-ctext">' + escapeHtml(c.text) + '</div>';
+        '<div class="rg-ctext">' + escapeHtml(c.text) + '</div>' +
+        (useLimitOf(c) > 0 ? '<div class="rg-uses-note">限 ' + useLimitOf(c) + ' 次</div>' : '');
       btn.addEventListener('click', function () { pickReward(id); });
       grid.appendChild(btn);
     });
-    $('rg-reward-skip').style.display = CONFIG.allowSkip ? '' : 'none';
+    var skipBtn = $('rg-reward-skip');
+    if (skipBtn) {
+      skipBtn.style.display = CONFIG.allowSkip ? '' : 'none';
+      skipBtn.textContent = '跳过（下回合 +' + describeSkipBonus() + ' 费用）';
+    }
+  }
+
+  /* 跳过奖励时可获得的费用补偿：取本轮可选卡中的最高费用，下限 skipManaMin */
+  function skipBonusValue() {
+    var top = 0;
+    (S.reward || []).forEach(function (id) {
+      var c = CARDS[id];
+      if (c && c.cost > top) top = c.cost;
+    });
+    return Math.max(Math.round(CONFIG.skipManaMin), top);
+  }
+
+  function describeSkipBonus() {
+    return skipBonusValue();
   }
 
   function pickReward(id) {
@@ -1050,6 +1775,11 @@
     var card = CARDS[id];
     if (!card) return;
     S.deck.push(id);
+    /* 若该卡此前次数用尽被移除，重新获得时视为一张新卡，恢复满次数 */
+    if (S.exhausted && S.exhausted.indexOf(id) >= 0) {
+      S.exhausted = S.exhausted.filter(function (k) { return k !== id; });
+    }
+    initUses(id);
     log('获得卡牌「' + card.name + '」加入卡组（当前 ' + S.deck.length + ' 张）', 'win');
     hideModal('rg-reward');
     S.phase = 'battle';
@@ -1058,7 +1788,10 @@
 
   function skipReward() {
     if (S.phase !== 'reward') return;
-    log('跳过本次战利品', 'mute');
+    var bonus = skipBonusValue();
+    S.skipManaPending = bonus;
+    log('跳过本次战利品：下回合额外获得 ' + bonus + ' 点费用（可超出费用上限）', 'win');
+    S.reward = [];
     hideModal('rg-reward');
     S.phase = 'battle';
     startWave();
@@ -1213,7 +1946,8 @@
       btn.type = 'button';
       btn.className = 'rg-deck-item';
       btn.innerHTML = '<span class="rg-di-cost">' + c.cost + '</span>' +
-        '<span class="rg-di-name">' + escapeHtml(c.name) + ' ×' + count[id] + '</span>' +
+        '<span class="rg-di-name">' + escapeHtml(c.name) + ' ×' + count[id] +
+          (useLimitOf(c) > 0 ? ' · 剩 ' + useLeftOf(id) + ' 次' : '') + '</span>' +
         '<span class="rg-di-text">' + escapeHtml(c.text) + '</span>' +
         '<span class="rg-di-pri">' + (pr > 0 ? new Array(pr + 1).join('★') : '默认') + '</span>';
       btn.addEventListener('click', function () {
@@ -1312,6 +2046,10 @@
     });
 
     $('rg-reward-skip').addEventListener('click', skipReward);
+
+    var coreNone = $('rg-core-none');
+    if (coreNone) coreNone.addEventListener('click', function () { pickCore(null); });
+
     $('rg-over-again').addEventListener('click', newRun);
 
     $('rg-log-top').addEventListener('click', function () {
@@ -1344,6 +2082,46 @@
     bind();
     applyLiveConfig();
     newRun();
+  }
+
+  /* 离线对局模拟钩子：仅当页面显式声明 __RG_TEST 时挂载，不影响正常运行 */
+  if (window.__RG_TEST || window.__rgTest) {
+    window.__rgDebug = {
+      S: S,
+      CONFIG: CONFIG,
+      CARDS: CARDS,
+      CORES: CORES,
+      CORE_ORDER: CORE_ORDER,
+      CORE_PICK_COUNT: CORE_PICK_COUNT,
+      getCorePool: function () { return corePool.slice(); },
+      ARCH_LABEL: ARCH_LABEL,
+      setCore: setCore,
+      pickCore: pickCore,
+      newRun: newRun,
+      startWave: startWave,
+      pickReward: pickReward,
+      skipReward: skipReward,
+      skipBonusValue: skipBonusValue,
+      useLeftOf: useLeftOf,
+      incomingDamage: incomingDamage,
+      intentHits: intentHits,
+      intentSegmentDamage: intentSegmentDamage,
+      rollIntent: rollIntent,
+      playCardAt: playCardAt,
+      scoreCard: scoreCard,
+      pickBestCard: pickBestCard,
+      doEnemyTurn: doEnemyTurn,
+      doTurnStart: doTurnStart,
+      renderAll: renderAll,
+      dealToPlayer: dealToPlayer,
+      /* 选定核心后进入首波（供模拟器使用） */
+      beginAfterCore: function () {
+        if (S.phase !== 'core') return;
+        hideModal('rg-core');
+        S.phase = 'battle';
+        startWave();
+      }
+    };
   }
 
   if (document.readyState === 'loading') {
