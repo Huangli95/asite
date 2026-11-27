@@ -47,7 +47,7 @@
   };
 
   /* 独立页面的板块：卡片点击直接跳转，不走首页 hash 路由 */
-  var BOARD_PAGE = { novel: "/novel", games: "/games", audio: "/audio" };
+  var BOARD_PAGE = { novel: "/novel", games: "/games", audio: "/audio", bored: "/bored" };
 
   var state = {
     boards: [],
